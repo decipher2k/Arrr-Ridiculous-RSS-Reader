@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Arrr – Advanced Robot RSS Reader</title>
+  <meta name="description" content="Cross-Platform Desktop RSS Reader mit KI-Deduplizierung, KI-Übersetzung und Zusammenfassung. Lokale KI oder OpenAI-kompatible API.">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="preload" href="css/style.css" as="style">
+</head>
+<body>
+  <canvas id="stars-canvas" aria-hidden="true"></canvas>
+  <div class="grid-overlay" aria-hidden="true"></div>
+
+  <header class="site-header" role="banner">
+    <nav class="nav-inner" aria-label="Hauptnavigation">
+      <a href="index.html" class="nav-logo" aria-current="page">~/$ ARRR</a>
+      <div class="nav-links">
+        <a href="index.html" class="active">Start</a>
+        <a href="installation.html">Installation</a>
+        <a href="einrichtung.html">Einrichtung</a>
+        <a href="bedienung.html">Bedienung</a>
+        <a href="ki-funktionen.html">KI-Features</a>
+      </div>
+    </nav>
+  </header>
+
+  <main>
+    <!-- Hero -->
+    <section class="hero">
+      <h1>Arrr – Advanced Robot RSS Reader</h1>
+      <p class="subtitle">
+        Ein moderner, plattformübergreifender Desktop-RSS-Reader mit
+        KI-gestützter Deduplizierung, Übersetzung und Zusammenfassung.
+        Lokale KI direkt integriert – kein Ollama, kein Docker, kein Setup.
+      </p>
+      <p class="tagline">Read smarter. Stay informed. Own your data.</p>
+      <div class="hero-badges">
+        <span class="badge" aria-label="Windows, macOS, Linux">🖥️ Windows · macOS · Linux</span>
+        <span class="badge turquoise" aria-label="Lokale KI">🧠 Lokale KI (llama.cpp)</span>
+        <span class="badge" aria-label="OpenAI kompatibel">☁️ OpenAI-kompatibel</span>
+        <span class="badge turquoise" aria-label="9 Sprachen">🌐 9 Sprachen</span>
+        <span class="badge" aria-label="Open Source Apache 2.0">📄 Apache 2.0</span>
+      </div>
+      <div class="hero-cta">
+        <a href="installation.html" class="btn btn-primary">🚀 Loslegen</a>
+        <a href="#features" class="btn btn-secondary">✨ Features entdecken</a>
+      </div>
+    </section>
+
+    <!-- Features Overview -->
+    <section id="features" class="section">
+      <div class="container">
+        <div class="section-title">
+          <h2>Core Features</h2>
+          <p>Alles, was ein moderner RSS-Reader braucht – und mehr.</p>
+        </div>
+        <div class="features-grid">
+          <article class="feature-card">
+            <span class="icon" aria-hidden="true">📰</span>
+            <h3>News-ähnliches Layout</h3>
+            <p>
+              Drei-Panel-Zeitungslayout mit bildreichen Artikelkarten.
+              Keine langweilige Listenansicht – fühlt sich an wie eine
+              moderne Nachrichtenseite.
+            </p>
+          </article>
+
+          <article class="feature-card">
+            <span class="icon" aria-hidden="true">🧠</span>
+            <h3>KI-Deduplizierung</h3>
+            <p>
+              Erkennt semantisch identische Artikel über verschiedene
+              Quellen hinweg. Gleiche Nachricht von 5 Portalen?
+              Nur einmal angezeigt – der Rest wird gruppiert.
+            </p>
+          </article>
+
+          <article class="feature-card">
+            <span class="icon" aria-hidden="true">🌍</span>
+            <h3>KI-Übersetzung &amp; Zusammenfassung</h3>
+            <p>
+              Übersetze Artikel in 9 Sprachen (DE, EN, FR, ES, IT, HI, ZH, RU, JA).
+              Auf ~500 Wörter zusammengefasst. Ein Klick zwischen Original und Übersetzung.
+            </p>
+          </article>
+
+          <article class="feature-card">
+            <span class="icon" aria-hidden="true">💻</span>
+            <h3>Lokale KI – Kein Setup</h3>
+            <p>
+              llama.cpp + Ministral-3B direkt eingebaut. Modell-Download per Knopfdruck.
+              Kein Ollama, kein Docker, keine Kommandozeile nötig.
+            </p>
+          </article>
+
+          <article class="feature-card">
+            <span class="icon" aria-hidden="true">☁️</span>
+            <h3>OpenAI-Kompatible API</h3>
+            <p>
+              Nutze OpenAI, Azure, LiteLLM oder jeden anderen
+              OpenAI-kompatiblen Endpunkt. API-Key wird verschlüsselt
+              im Betriebssystem-Schlüsselbund gespeichert.
+            </p>
+          </article>
+
+          <article class="feature-card">
+            <span class="icon" aria-hidden="true">📡</span>
+            <h3>Artikel-Scraping</h3>
+            <p>
+              Extrahiere den vollständigen Artikel-Inhalt von der
+              Quellwebseite – nicht nur den RSS-Teaser. Pro Feed
+              konfigurierbar: Feed-Inhalt oder Originalartikel.
+            </p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- Quick Start -->
+    <section class="section" style="background: rgba(0,212,255,0.02);">
+      <div class="container">
+        <div class="section-title">
+          <h2>Schnellstart in 3 Schritten</h2>
+          <p>In wenigen Minuten von Null auf produktiv.</p>
+        </div>
+        <div class="steps">
+          <div class="step">
+            <div class="step-num">1</div>
+            <div class="step-body">
+              <h3>App herunterladen &amp; starten</h3>
+              <p>
+                Lade die passende Version für dein Betriebssystem herunter
+                (Windows .exe, macOS .dmg, Linux .AppImage/.deb).
+                Installieren, starten – fertig.
+              </p>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-num">2</div>
+            <div class="step-body">
+              <h3>Feeds hinzufügen &amp; Kategorien anlegen</h3>
+              <p>
+                Lege Kategorien wie „Technik", „Politik" oder „Wissenschaft" an.
+                Füge RSS/Atom-Feed-URLs hinzu. Ein Klick auf „Abrufen"
+                holt die neuesten Artikel.
+              </p>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-num">3</div>
+            <div class="step-body">
+              <h3>KI konfigurieren (optional)</h3>
+              <p>
+                Wähle zwischen lokalem Modell (Download per Knopfdruck)
+                oder OpenAI-kompatibler API. Aktiviere Deduplizierung
+                und/oder Übersetzung nach Bedarf.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Architecture -->
+    <section class="section">
+      <div class="container">
+        <div class="section-title">
+          <h2>Technologie-Stack</h2>
+          <p>Modern, robust, plattformübergreifend.</p>
+        </div>
+        <table aria-label="Technologie-Stack">
+          <thead>
+            <tr><th>Schicht</th><th>Technologie</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Desktop Shell</td><td>Electron 33</td></tr>
+            <tr><td>UI-Framework</td><td>React 18, TypeScript 5</td></tr>
+            <tr><td>Build-Tool</td><td>Vite 5</td></tr>
+            <tr><td>CSS</td><td>Tailwind CSS 3</td></tr>
+            <tr><td>State Management</td><td>Zustand 5</td></tr>
+            <tr><td>Datenbank</td><td>SQLite</td></tr>
+            <tr><td>RSS-Parsing</td><td>rss-parser</td></tr>
+            <tr><td>Content Scraping</td><td>Cheerio</td></tr>
+            <tr><td>Lokale KI</td><td>llama.cpp (gebundled)</td></tr>
+            <tr><td>Packaging</td><td>electron-builder</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer" role="contentinfo">
+    <div class="footer-inner">
+      <p class="footer-copy">&copy; 2026 Dennis Michael Heine – Arrr RSS Reader</p>
+      <nav class="footer-links" aria-label="Rechtliches">
+        <a href="impressum.html">Impressum</a>
+        <a href="datenschutz.html">Datenschutz</a>
+        <a href="barrierefreiheit.html">Barrierefreiheit</a>
+      </nav>
+    </div>
+  </footer>
+
+  <script>
+    // Animated starfield
+    const canvas = document.getElementById('stars-canvas');
+    const ctx = canvas.getContext('2d');
+    let stars = [];
+    function resize() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    }
+    resize();
+    window.addEventListener('resize', resize);
+    for (let i = 0; i < 150; i++) {
+      stars.push({
+        x: Math.random() * canvas.width,
+        y: Math.random() * canvas.height,
+        r: Math.random() * 1.5 + 0.3,
+        vx: (Math.random() - 0.5) * 0.15,
+        vy: (Math.random() - 0.5) * 0.15,
+        o: Math.random() * 0.7 + 0.3,
+        t: Math.random() * 100
+      });
+    }
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      for (const s of stars) {
+        s.t += 0.01;
+        const flicker = 0.5 + 0.5 * Math.sin(s.t * 3);
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(${Math.random() > 0.8 ? '0,212,255' : '255,255,255'},${s.o * flicker})`;
+        ctx.fill();
+        s.x += s.vx;
+        s.y += s.vy;
+        if (s.x < 0) s.x = canvas.width;
+        if (s.x > canvas.width) s.x = 0;
+        if (s.y < 0) s.y = canvas.height;
+        if (s.y > canvas.height) s.y = 0;
+      }
+      requestAnimationFrame(draw);
+    }
+    draw();
+  </script>
+</body>
+</html>

@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Einrichtung – Arrr RSS Reader</title>
+  <meta name="description" content="Ersteinrichtung von Arrr RSS Reader: KI-Provider konfigurieren, Feeds und Kategorien einrichten, Modell herunterladen.">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <canvas id="stars-canvas" aria-hidden="true"></canvas>
+  <div class="grid-overlay" aria-hidden="true"></div>
+
+  <header class="site-header" role="banner">
+    <nav class="nav-inner" aria-label="Hauptnavigation">
+      <a href="index.html" class="nav-logo">~/$ ARRR</a>
+      <div class="nav-links">
+        <a href="index.html">Start</a>
+        <a href="installation.html">Installation</a>
+        <a href="einrichtung.html" class="active">Einrichtung</a>
+        <a href="bedienung.html">Bedienung</a>
+        <a href="ki-funktionen.html">KI-Features</a>
+      </div>
+    </nav>
+  </header>
+
+  <main>
+    <section class="page-header">
+      <h1>Einrichtung</h1>
+      <p style="color:var(--text-dim); margin-top:0.5rem;">
+        Schritt-für-Schritt: Vom ersten Start zur produktiven Nutzung.
+      </p>
+    </section>
+
+    <section class="section" style="padding-top:0;">
+      <div class="container">
+        <div class="content">
+
+          <h2>📋 Erster Start</h2>
+          <p>
+            Nach dem ersten Start siehst du die leere Oberfläche mit der
+            Kategorie-Leiste oben und dem leeren Artikelbereich. Über den
+            Button <strong>„Verwalten"</strong> gelangst du in den
+            Feed-Manager.
+          </p>
+
+          <h3>1. Kategorien anlegen</h3>
+          <p>
+            Kategorien helfen, deine Feeds zu organisieren. In der oberen Leiste:
+          </p>
+          <ol>
+            <li>Klick auf das <strong>„+"</strong>-Feld links in der Kategorie-Leiste</li>
+            <li>Name eingeben (z.B. „Technik", „News", „Wissenschaft")</li>
+            <li>Mit Enter oder Klick auf „Hinzufügen" bestätigen</li>
+          </ol>
+          <p>
+            Kategorien lassen sich per Rechtsklick umbenennen, löschen oder
+            in der Reihenfolge verschieben.
+          </p>
+
+          <h3>2. Feeds hinzufügen</h3>
+          <p>
+            Öffne den Feed-Manager über den <strong>„Verwalten"</strong>-Button:
+          </p>
+          <ol>
+            <li>Titel für den Feed vergeben (wird automatisch aus dem RSS-Feed übernommen)</li>
+            <li>RSS/Atom-URL eingeben (z.B. <code>https://heise.de/security/rss/news-atom.xml</code>)</li>
+            <li>Kategorien auswählen (Mehrfachauswahl möglich)</li>
+            <li><strong>Detailansicht</strong> wählen:
+              <ul>
+                <li><strong>Feed-Inhalt:</strong> Zeigt den RSS-Text an (schnell, weniger Inhalt)</li>
+                <li><strong>Verlinkte News:</strong> Scraped den vollständigen Artikel von der Webseite (mehr Inhalt, langsamer)</li>
+              </ul>
+            </li>
+            <li>Klick auf „Hinzufügen"</li>
+          </ol>
+
+          <p>Wiederhole diesen Schritt für alle gewünschten Feeds.</p>
+
+          <h2>⚙️ KI-Provider konfigurieren</h2>
+          <p>
+            Öffne die Einstellungen über den <strong>„Einstellungen"</strong>-Button
+            (Zahnrad-Icon).
+          </p>
+
+          <h3>Option A: OpenAI-kompatible API (extern)</h3>
+          <ol>
+            <li>Wähle <strong>„OpenAI-kompatibel (extern)"</strong> als KI-Anbieter</li>
+            <li>Gib die <strong>API Base URL</strong> ein (Standard: <code>https://api.openai.com/v1</code>)</li>
+            <li>Gib deinen <strong>API Key</strong> ein (wird verschlüsselt im OS-Schlüsselbund gespeichert)</li>
+            <li>Wähle das <strong>Modell</strong> (z.B. <code>gpt-4o-mini</code>, <code>gpt-4o</code>)</li>
+            <li>Passe die <strong>Temperatur</strong> an (Standard: 0.2, niedrig für präzise Ergebnisse)</li>
+            <li>Klick auf <strong>„Verbindung testen"</strong> zur Überprüfung</li>
+          </ol>
+
+          <div class="note">
+            <strong>Kompatibel mit:</strong> OpenAI, Azure OpenAI, LiteLLM,
+            OpenRouter, lokale llama-server-Instanzen und allen anderen
+            Diensten mit OpenAI-kompatibler <code>/chat/completions</code>-Schnittstelle.
+          </div>
+
+          <h3>Option B: Lokales Modell (llama.cpp)</h3>
+          <ol>
+            <li>Wähle <strong>„Lokales Modell (llama.cpp)"</strong> als KI-Anbieter</li>
+            <li>
+              Klick auf <strong>„Modell herunterladen"</strong> –
+              das Ministral-3-3B-Instruct-Modell (~1,9 GB) wird von HuggingFace geladen.
+              Der Download-Fortschritt wird in Echtzeit angezeigt.
+            </li>
+            <li>
+              Nach dem Download ist das Modell sofort einsatzbereit.
+              Die App startet <code>llama-server</code> automatisch im Hintergrund.
+            </li>
+            <li>
+              Passe bei Bedarf an:
+              <ul>
+                <li><strong>Server-Port:</strong> Standard 8080</li>
+                <li><strong>Kontextgröße:</strong> Standard 8192 Tokens</li>
+                <li><strong>GPU-Layer:</strong> Standard 99 (alle auf GPU)</li>
+                <li><strong>CPU-Fallback:</strong> Erlauben, wenn keine GPU verfügbar (deutlich langsamer)</li>
+              </ul>
+            </li>
+            <li>Klick auf <strong>„Lokale Verbindung testen"</strong></li>
+          </ol>
+
+          <div class="warn">
+            <strong>Systemanforderung lokale KI:</strong> Das Modell benötigt
+            ca. 4–5 GB VRAM. Eine CUDA-fähige NVIDIA-GPU wird empfohlen.
+            Ohne GPU (CPU-Fallback) ist die Verarbeitung ca. 10–20× langsamer.
+          </div>
+
+          <h2>🌐 UI-Sprache wählen</h2>
+          <p>
+            Wähle unter <strong>„Sprache der Benutzeroberfläche"</strong> eine der
+            9 verfügbaren Sprachen:
+          </p>
+          <table aria-label="Verfügbare UI-Sprachen">
+            <thead>
+              <tr><th>Code</th><th>Sprache</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>en</td><td>English</td></tr>
+              <tr><td>de</td><td>Deutsch</td></tr>
+              <tr><td>fr</td><td>Français</td></tr>
+              <tr><td>es</td><td>Español</td></tr>
+              <tr><td>it</td><td>Italiano</td></tr>
+              <tr><td>hi</td><td>हिन्दी</td></tr>
+              <tr><td>zh</td><td>中文</td></tr>
+              <tr><td>ru</td><td>Русский</td></tr>
+              <tr><td>ja</td><td>日本語</td></tr>
+            </tbody>
+          </table>
+
+          <h2>⏱️ Automatischen Abruf aktivieren</h2>
+          <p>
+            Aktiviere <strong>„Automatischen Feed-Abruf aktivieren"</strong>
+            und stelle das gewünschte Intervall ein (5–1440 Minuten). Die App
+            holt dann selbstständig neue Artikel im Hintergrund – auch wenn
+            das Fenster minimiert ist.
+          </p>
+
+          <h2>📋 Nächste Schritte</h2>
+          <p>
+            Nach der Einrichtung kannst du:
+          </p>
+          <ul>
+            <li><a href="bedienung.html">Die tägliche Bedienung kennenlernen</a></li>
+            <li><a href="ki-funktionen.html">KI-Deduplizierung und Übersetzung aktivieren</a></li>
+          </ul>
+
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer" role="contentinfo">
+    <div class="footer-inner">
+      <p class="footer-copy">&copy; 2026 Dennis Michael Heine – Arrr RSS Reader</p>
+      <nav class="footer-links" aria-label="Rechtliches">
+        <a href="impressum.html">Impressum</a>
+        <a href="datenschutz.html">Datenschutz</a>
+        <a href="barrierefreiheit.html">Barrierefreiheit</a>
+      </nav>
+    </div>
+  </footer>
+
+  <script src="js/stars.js"></script>
+</body>
+</html>

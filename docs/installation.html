@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Installation – Arrr RSS Reader</title>
+  <meta name="description" content="Installationsanleitung für Arrr RSS Reader – Windows, macOS, Linux. Per Download oder selbst kompilieren.">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <canvas id="stars-canvas" aria-hidden="true"></canvas>
+  <div class="grid-overlay" aria-hidden="true"></div>
+
+  <header class="site-header" role="banner">
+    <nav class="nav-inner" aria-label="Hauptnavigation">
+      <a href="index.html" class="nav-logo">~/$ ARRR</a>
+      <div class="nav-links">
+        <a href="index.html">Start</a>
+        <a href="installation.html" class="active">Installation</a>
+        <a href="einrichtung.html">Einrichtung</a>
+        <a href="bedienung.html">Bedienung</a>
+        <a href="ki-funktionen.html">KI-Features</a>
+      </div>
+    </nav>
+  </header>
+
+  <main>
+    <section class="page-header">
+      <h1>Installation</h1>
+      <p style="color:var(--text-dim); margin-top:0.5rem;">
+        Arrr läuft auf Windows, macOS und Linux. Wähle die für dich passende Methode.
+      </p>
+    </section>
+
+    <section class="section" style="padding-top:0;">
+      <div class="container">
+        <div class="content">
+
+          <h2>📦 Fertige Pakete (empfohlen)</h2>
+          <p>
+            Lade die neueste Version von der
+            <a href="https://github.com/example/rss-reader-electron/releases" target="_blank" rel="noopener">GitHub Releases-Seite</a>
+            herunter:
+          </p>
+
+          <table aria-label="Download-Optionen pro Plattform">
+            <thead>
+              <tr><th>Plattform</th><th>Format</th><th>Installation</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Windows</strong></td>
+                <td><code>.exe</code> (NSIS Installer)</td>
+                <td>Doppelklick auf die <code>.exe</code>-Datei, dem Installer folgen.</td>
+              </tr>
+              <tr>
+                <td><strong>macOS</strong></td>
+                <td><code>.dmg</code></td>
+                <td>DMG öffnen, App in den Programme-Ordner ziehen.</td>
+              </tr>
+              <tr>
+                <td><strong>Linux</strong></td>
+                <td><code>.AppImage</code> / <code>.deb</code></td>
+                <td>
+                  AppImage: <code>chmod +x Arrr*.AppImage && ./Arrr*.AppImage</code><br>
+                  DEB: <code>sudo dpkg -i arrr*.deb</code>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+
+          <h2>🛠️ Selbst kompilieren</h2>
+          <p>Voraussetzungen: <strong>Node.js ≥ 18</strong> und <strong>npm ≥ 9</strong>.</p>
+
+          <h3>1. Repository klonen</h3>
+          <pre><code>git clone https://github.com/example/rss-reader-electron.git
+cd rss-reader-electron</code></pre>
+
+          <h3>2. Abhängigkeiten installieren</h3>
+          <pre><code>npm install</code></pre>
+
+          <div class="note">
+            <strong>Hinweis:</strong> Der <code>postinstall</code>-Hook führt
+            <code>electron-builder install-app-deps</code> aus, um native
+            Module (SQLite) für Electron zu kompilieren.
+          </div>
+
+          <h3>3. Bauen &amp; starten</h3>
+          <pre><code>npm run build      # Produktions-Build
+npm run electron   # App starten</code></pre>
+
+          <h3>4. Entwicklungsmodus</h3>
+          <pre><code>npm run dev            # Vite Dev-Server (Renderer auf Port 5173)
+npm run electron:dev   # Main-Prozess bauen + Electron starten</code></pre>
+
+          <div class="note">
+            <strong>Entwicklungsmodus:</strong> Der Renderer läuft auf
+            <code>http://localhost:5173</code> mit Hot Module Replacement.
+            Der Electron Main-Prozess verbindet sich automatisch mit dem
+            Vite Dev-Server.
+          </div>
+
+          <h2>📦 Paketierung für Distribution</h2>
+
+          <table aria-label="Build-Befehle pro Plattform">
+            <thead>
+              <tr><th>Befehl</th><th>Ergebnis</th></tr>
+            </thead>
+            <tbody>
+              <tr><td><code>npm run dist</code></td><td>Alle Plattformen</td></tr>
+              <tr><td><code>npm run dist:win</code></td><td>Windows (NSIS)</td></tr>
+              <tr><td><code>npm run dist:mac</code></td><td>macOS (DMG)</td></tr>
+              <tr><td><code>npm run dist:linux</code></td><td>Linux (AppImage + deb)</td></tr>
+            </tbody>
+          </table>
+
+          <p>Die Pakete landen im <code>release/</code>-Verzeichnis.</p>
+
+          <h2>📁 Projektstruktur</h2>
+          <pre><code>src/
+├── main/              # Electron Main Process
+│   ├── main.ts        # App-Einstieg, Fenster, Auto-Fetch
+│   ├── preload.ts     # Context Bridge (electronAPI)
+│   ├── ipc.ts         # IPC-Handler (Datenbank, Feeds, KI)
+│   ├── db/            # SQLite-Datenbank (6 Tabellen)
+│   ├── ai/            # KI-Provider & Features
+│   ├── feeds/         # RSS-Parsing, Bildextraktion
+│   ├── articles/      # Artikel-Scraping & Extraktion
+│   └── settings/      # Verschlüsselte Einstellungen
+├── renderer/          # React Frontend
+│   ├── App.tsx        # Wurzel-Layout
+│   ├── components/    # UI-Komponenten
+│   ├── state/         # Zustand Store
+│   └── i18n/          # 9 Sprachdateien
+├── shared/            # Typen, Konstanten, Validierung
+└── resources/
+    └── llama.cpp/     # Gebundelte llama.cpp-Binaries</code></pre>
+
+          <h2>🔧 Systemanforderungen</h2>
+          <table aria-label="Systemanforderungen">
+            <thead>
+              <tr><th>Komponente</th><th>Minimum</th><th>Empfohlen</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>Betriebssystem</td><td>Windows 10+, macOS 11+, Linux (glibc 2.28+)</td><td>Neueste Version</td></tr>
+              <tr><td>Arbeitsspeicher</td><td>4 GB RAM</td><td>8+ GB RAM</td></tr>
+              <tr><td>Festplatte</td><td>500 MB</td><td>3+ GB (mit lokalem KI-Modell)</td></tr>
+              <tr><td>GPU (für lokale KI)</td><td>CUDA-fähig, 4 GB VRAM</td><td>6+ GB VRAM</td></tr>
+            </tbody>
+          </table>
+
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer" role="contentinfo">
+    <div class="footer-inner">
+      <p class="footer-copy">&copy; 2026 Dennis Michael Heine – Arrr RSS Reader</p>
+      <nav class="footer-links" aria-label="Rechtliches">
+        <a href="impressum.html">Impressum</a>
+        <a href="datenschutz.html">Datenschutz</a>
+        <a href="barrierefreiheit.html">Barrierefreiheit</a>
+      </nav>
+    </div>
+  </footer>
+
+  <script src="js/stars.js"></script>
+</body>
+</html>

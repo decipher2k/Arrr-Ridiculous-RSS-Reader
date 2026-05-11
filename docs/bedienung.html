@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bedienung – Arrr RSS Reader</title>
+  <meta name="description" content="Tägliche Bedienung von Arrr RSS Reader: Artikel lesen, Kategorien verwalten, Duplikate anzeigen, Übersetzungen nutzen.">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <canvas id="stars-canvas" aria-hidden="true"></canvas>
+  <div class="grid-overlay" aria-hidden="true"></div>
+
+  <header class="site-header" role="banner">
+    <nav class="nav-inner" aria-label="Hauptnavigation">
+      <a href="index.html" class="nav-logo">~/$ ARRR</a>
+      <div class="nav-links">
+        <a href="index.html">Start</a>
+        <a href="installation.html">Installation</a>
+        <a href="einrichtung.html">Einrichtung</a>
+        <a href="bedienung.html" class="active">Bedienung</a>
+        <a href="ki-funktionen.html">KI-Features</a>
+      </div>
+    </nav>
+  </header>
+
+  <main>
+    <section class="page-header">
+      <h1>Bedienung</h1>
+      <p style="color:var(--text-dim); margin-top:0.5rem;">
+        Alles zur täglichen Nutzung: Oberfläche, Workflows und Shortcuts.
+      </p>
+    </section>
+
+    <section class="section" style="padding-top:0;">
+      <div class="container">
+        <div class="content">
+
+          <h2>🖥️ Die Oberfläche im Überblick</h2>
+          <p>
+            Arrr verwendet ein <strong>Drei-Panel-Layout</strong> im Zeitungsstil:
+          </p>
+
+          <ol>
+            <li>
+              <strong>Kategorie-Leiste (oben):</strong>
+              Tab-ähnliche Buttons für jede Kategorie. Plus-Button zum Anlegen
+              neuer Kategorien. Rechts die Buttons für Abrufen, Verwalten und
+              Einstellungen.
+            </li>
+            <li>
+              <strong>Artikelliste (links, 28rem breit):</strong>
+              Bildreiche Karten mit Thumbnail (115×115px), fett gedrucktem Titel,
+              3-zeiliger Beschreibung, Quellenname und Datum. Aktiver Artikel
+              ist blau hervorgehoben.
+            </li>
+            <li>
+              <strong>Artikelansicht (rechts, flexibel):</strong>
+              Vollständiger Artikel-Inhalt mit Teaser-Bild, Titel, Metadaten und
+              gesäubertem HTML (XSS-geschützt via DOMPurify).
+            </li>
+          </ol>
+
+          <h2>📰 Feeds abrufen</h2>
+          <p>
+            Klick auf den <strong>„Abrufen"</strong>-Button in der Kategorie-Leiste:
+          </p>
+          <ul>
+            <li>Holt neue Artikel für <em>alle</em> Feeds der aktuell ausgewählten Kategorie</li>
+            <li>Zeigt einen Lade-Indikator in der Artikelliste</li>
+            <li>Artikel werden chronologisch sortiert (neueste zuerst)</li>
+            <li>Bei aktiviertem Auto-Fetch geschieht dies automatisch im Hintergrund</li>
+          </ul>
+
+          <h2>📖 Artikel lesen</h2>
+          <ul>
+            <li><strong>Klick</strong> auf eine Artikelkarte lädt den vollständigen Inhalt</li>
+            <li>Artikel mit <strong>verlinkten News</strong> (Content-Mode: Scraped) zeigen den extrahierten Webseiten-Inhalt</li>
+            <li>Artikel mit <strong>Feed-Inhalt</strong> zeigen den RSS-Text</li>
+            <li>Über <strong>„Original öffnen"</strong> wird der Artikel im Standard-Browser geöffnet</li>
+            <li>Der Link unter dem Titel führt ebenfalls zum Originalartikel</li>
+          </ul>
+
+          <h2>🏷️ Kategorien verwalten</h2>
+          <p><strong>Rechtsklick</strong> auf einen Kategorie-Tab öffnet ein Kontextmenü:</p>
+          <table aria-label="Kategorie-Aktionen">
+            <thead>
+              <tr><th>Aktion</th><th>Beschreibung</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>Umbenennen</td><td>Kategorie umbenennen (inline-Edit im Tab)</td></tr>
+              <tr><td>Löschen</td><td>Kategorie mit Bestätigungsdialog löschen (Feeds bleiben erhalten)</td></tr>
+              <tr><td>Nach links</td><td>Kategorie in der Reihenfolge nach links verschieben</td></tr>
+              <tr><td>Nach rechts</td><td>Kategorie in der Reihenfolge nach rechts verschieben</td></tr>
+            </tbody>
+          </table>
+
+          <h2>📋 Feeds verwalten</h2>
+          <p>
+            Der <strong>„Verwalten"</strong>-Button öffnet den Feed-Manager mit:
+          </p>
+          <ul>
+            <li><strong>Neuen Feed hinzufügen:</strong> Titel, URL, Kategorien, Content-Mode</li>
+            <li><strong>Bestehende Feeds:</strong> Übersicht aller Feeds mit Kategorie-Zuordnung</li>
+            <li><strong>Feed bearbeiten:</strong> Titel, URL, Kategorien und Content-Mode ändern</li>
+            <li><strong>Feed löschen:</strong> Mit Bestätigungsdialog (inkl. aller zugehörigen Artikel)</li>
+            <li><strong>Feed manuell abrufen:</strong> Einzelnen Feed sofort aktualisieren</li>
+          </ul>
+
+          <h2>🔄 Original / Übersetzt umschalten</h2>
+          <p>
+            Wenn KI-Übersetzung aktiviert ist, erscheint in der Artikelansicht
+            oben rechts ein Toggle:
+          </p>
+          <ul>
+            <li><strong>Original:</strong> Zeigt den unveränderten Artikel-Inhalt</li>
+            <li><strong>Übersetzt:</strong> Zeigt die KI-übersetzte und zusammengefasste Version</li>
+          </ul>
+          <p>
+            Die Übersetzung wird einmalig erstellt und gecached. Unter dem Titel
+            erscheint die Info „KI-Übersetzung / Zusammenfassung · ca. X Wörter".
+          </p>
+
+          <h2>👻 Duplikate ein-/ausblenden</h2>
+          <p>
+            Nach einer KI-Deduplizierung erscheint ein Toggle-Button:
+          </p>
+          <ul>
+            <li><strong>Duplikate ausblenden:</strong> Zeigt nur den kanonischen Artikel pro Duplikat-Gruppe (Standard)</li>
+            <li><strong>Duplikate anzeigen:</strong> Blendet alle (ausgegrauten) Duplikate ein</li>
+          </ul>
+
+          <h2>⚙️ Einstellungen</h2>
+          <p>Der <strong>„Einstellungen"</strong>-Button (Zahnrad) öffnet ein Modal mit:</p>
+          <table aria-label="Einstellungen-Übersicht">
+            <thead>
+              <tr><th>Bereich</th><th>Optionen</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>UI-Sprache</td><td>9 Sprachen (DE, EN, FR, ES, IT, HI, ZH, RU, JA)</td></tr>
+              <tr><td>KI-Anbieter</td><td>OpenAI-kompatibel oder Lokal (llama.cpp)</td></tr>
+              <tr><td>API (extern)</td><td>Base URL, API Key, Modell, Temperatur</td></tr>
+              <tr><td>Lokales Modell</td><td>Download, Port, Kontextgröße, GPU-Layer, CPU-Fallback</td></tr>
+              <tr><td>KI-Deduplizierung</td><td>Ein/Aus (Toggle)</td></tr>
+              <tr><td>KI-Übersetzung</td><td>Ein/Aus (Toggle)</td></tr>
+              <tr><td>Auto-Fetch</td><td>Ein/Aus + Intervall (5–1440 Minuten)</td></tr>
+            </tbody>
+          </table>
+
+          <h2>💡 Tipps für den Alltag</h2>
+          <ul>
+            <li><strong>Auto-Fetch nutzen:</strong> Lass die App im Hintergrund laufen – neue Artikel erscheinen automatisch.</li>
+            <li><strong>Content-Mode pro Feed:</strong> Nutze „Feed-Inhalt" für schnelle Übersicht bei vielen Feeds, „Verlinkte News" für Tiefenlektüre bei wenigen Qualitätsquellen.</li>
+            <li><strong>Deduplizierung nach Abruf:</strong> Bei aktivierter KI-Deduplizierung werden neue Artikel automatisch nach jedem Auto-Fetch dedupliziert.</li>
+            <li><strong>Übersetzungs-Cache:</strong> Übersetzte Artikel werden in SQLite gecached – kein doppelter API-Verbrauch.</li>
+          </ul>
+
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer" role="contentinfo">
+    <div class="footer-inner">
+      <p class="footer-copy">&copy; 2026 Dennis Michael Heine – Arrr RSS Reader</p>
+      <nav class="footer-links" aria-label="Rechtliches">
+        <a href="impressum.html">Impressum</a>
+        <a href="datenschutz.html">Datenschutz</a>
+        <a href="barrierefreiheit.html">Barrierefreiheit</a>
+      </nav>
+    </div>
+  </footer>
+
+  <script src="js/stars.js"></script>
+</body>
+</html>

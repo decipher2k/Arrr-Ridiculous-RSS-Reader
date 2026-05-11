@@ -1,0 +1,88 @@
+{
+  "name": "rss-reader-electron",
+  "version": "1.0.0",
+  "description": "Cross-platform RSS Reader built with Electron, React, TypeScript and SQLite",
+  "main": "dist/main/main.js",
+  "author": "RSS Reader Team <info@dennis-heine.de>",
+  "license": "MIT",
+  "homepage": "https://bitgrund.de",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -p tsconfig.json && vite build && npm run build:main",
+    "build:main": "tsc -p tsconfig.main.json",
+    "preview": "vite preview",
+    "electron": "electron .",
+    "electron:dev": "npm run build:main && cross-env NODE_ENV=development electron .",
+    "dist": "npm run build && electron-builder",
+    "dist:win": "npm run build && electron-builder --win",
+    "dist:mac": "npm run build && electron-builder --mac",
+    "dist:linux": "npm run build && electron-builder --linux",
+    "postinstall": "electron-builder install-app-deps"
+  },
+  "dependencies": {
+    "cheerio": "^1.0.0",
+    "clsx": "^2.1.1",
+    "dompurify": "^3.1.7",
+    "electron-store": "^8.2.0",
+    "lucide-react": "^0.454.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "rss-parser": "^3.13.0",
+    "sqlite3": "^6.0.1",
+    "tailwind-merge": "^2.5.4",
+    "zustand": "^5.0.1"
+  },
+  "devDependencies": {
+    "@types/dompurify": "^3.0.5",
+    "@types/node": "^20.17.6",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.3",
+    "autoprefixer": "^10.4.20",
+    "cross-env": "^7.0.3",
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.8",
+    "postcss": "^8.4.49",
+    "tailwindcss": "^3.4.14",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.11"
+  },
+  "build": {
+    "appId": "com.example.rss-reader",
+    "productName": "RSS Reader",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "resources/llama.cpp",
+        "to": "llama.cpp",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ],
+    "mac": {
+      "target": [
+        "dmg"
+      ],
+      "category": "public.app-category.news"
+    },
+    "win": {
+      "target": [
+        "nsis"
+      ]
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "category": "Network;News"
+    }
+  }
+}

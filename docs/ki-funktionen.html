@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>KI-Features – Arrr RSS Reader</title>
+  <meta name="description" content="KI-Features im Detail: Deduplizierung, Übersetzung, Zusammenfassung, lokales Modell und OpenAI-API.">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <canvas id="stars-canvas" aria-hidden="true"></canvas>
+  <div class="grid-overlay" aria-hidden="true"></div>
+
+  <header class="site-header" role="banner">
+    <nav class="nav-inner" aria-label="Hauptnavigation">
+      <a href="index.html" class="nav-logo">~/$ ARRR</a>
+      <div class="nav-links">
+        <a href="index.html">Start</a>
+        <a href="installation.html">Installation</a>
+        <a href="einrichtung.html">Einrichtung</a>
+        <a href="bedienung.html">Bedienung</a>
+        <a href="ki-funktionen.html" class="active">KI-Features</a>
+      </div>
+    </nav>
+  </header>
+
+  <main>
+    <section class="page-header">
+      <h1>KI-Features im Detail</h1>
+      <p style="color:var(--text-dim); margin-top:0.5rem;">
+        Deduplizierung, Übersetzung, Zusammenfassung – wie die KI in Arrr arbeitet.
+      </p>
+    </section>
+
+    <section class="section" style="padding-top:0;">
+      <div class="container">
+        <div class="content">
+
+          <h2>🧠 Architektur der KI-Integration</h2>
+          <p>
+            Arrr verwendet eine <strong>Provider-Abstraktion</strong>,
+            die zwischen zwei Backends umschalten kann:
+          </p>
+
+          <table aria-label="KI-Provider im Vergleich">
+            <thead>
+              <tr><th>Provider</th><th>Technologie</th><th>Vorteile</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>OpenAI-kompatibel</strong></td>
+                <td>HTTP Fetch mit Bearer-Auth an <code>/chat/completions</code></td>
+                <td>Keine lokalen Ressourcen, hohe Qualität (GPT-4o etc.), schnelle Antwortzeiten</td>
+              </tr>
+              <tr>
+                <td><strong>Lokal (llama.cpp)</strong></td>
+                <td>Child Process (<code>llama-server</code>), HTTP-API auf <code>localhost:8080</code></td>
+                <td>100% offline, keine API-Kosten, keine Datenweitergabe, kein externes Setup</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <p>
+            Beide Provider implementieren das gleiche Interface
+            (<code>AIProvider</code> mit <code>chatCompletion()</code>,
+            <code>healthCheck()</code>, <code>init()</code>, <code>dispose()</code>).
+            Der <code>aiProviderFactory</code> erzeugt einen Singleton-Provider,
+            der bei Settings-Änderungen automatisch neu initialisiert wird.
+          </p>
+
+          <h2>🔄 KI-Deduplizierung</h2>
+          <h3>So funktioniert's</h3>
+          <ol>
+            <li>Alle Artikel einer Kategorie werden gesammelt (Titel + Quelle + Datum)</li>
+            <li>Ein Hash über die Artikelmenge prüft, ob sich seit dem letzten Lauf etwas geändert hat</li>
+            <li>Die Titel werden als strukturierte Liste an das KI-Modell gesendet</li>
+            <li>Das Modell gibt ein striktes JSON-Schema zurück:
+              <pre><code>{
+  "groups": [
+    {
+      "canonicalArticleId": "abc-123",
+      "duplicateArticleIds": ["def-456", "ghi-789"],
+      "reason": "Beide Artikel berichten über das gleiche Ereignis"
+    }
+  ]
+}</code></pre>
+            </li>
+            <li>Bei ungültigem JSON automatischer Repair-Retry</li>
+            <li>Duplikate werden in der DB markiert (<code>duplicateGroupId</code>, <code>isHiddenDuplicate</code>)</li>
+          </ol>
+
+          <h3>Auslöser</h3>
+          <ul>
+            <li><strong>Manuell:</strong> Klick auf „Deduplizieren" in der Toolbar</li>
+            <li><strong>Automatisch:</strong> Nach jedem Auto-Fetch-Zyklus, wenn aktiviert</li>
+          </ul>
+
+          <h3>Datenfluss</h3>
+          <pre><code>articles (SQLite)
+  → getArticlesForDedup()
+  → Artikel-Titel als Prompt
+  → KI-Modell (Chat Completion)
+  → JSON-Response parsen
+  → markDuplicateGroup() in DB schreiben
+  → UI aktualisiert (Duplikate ausgegraut)</code></pre>
+
+          <div class="note">
+            <strong>Performance:</strong> Eine Eingabe-Hash-Prüfung verhindert
+            unnötige API-Aufrufe. Hat sich die Artikelmenge einer Kategorie
+            nicht verändert, wird der vorherige Deduplizierungslauf verwendet.
+          </div>
+
+          <h2>🌍 KI-Übersetzung &amp; Zusammenfassung</h2>
+          <h3>Deep Translation (Einzelartikel)</h3>
+          <p>
+            Die Funktion <code>translateAndSummarizeArticle()</code> verarbeitet
+            einen Artikel in diesen Schritten:
+          </p>
+          <ol>
+            <li><strong>Cache-Prüfung:</strong> Existiert bereits eine Übersetzung für Artikel + Zielsprache?</li>
+            <li><strong>Prompt-Konstruktion:</strong> Titel, Beschreibung und HTML-Body werden an das Modell gesendet</li>
+            <li><strong>Übersetzung:</strong> Das Modell übersetzt den gesamten HTML-Inhalt (h1, h2, h3, p)</li>
+            <li><strong>Zusammenfassung:</strong> Ziel: ca. 500 Wörter, behält die HTML-Struktur bei</li>
+            <li><strong>JSON-Response:</strong>
+              <pre><code>{
+  "title": "Übersetzter Titel",
+  "description": "Übersetzte Kurzbeschreibung",
+  "html": "&lt;h1&gt;...&lt;/h1&gt;&lt;p&gt;...&lt;/p&gt;"
+}</code></pre>
+            </li>
+            <li><strong>Speicherung:</strong> In <code>article_translations</code>-Tabelle (SQLite) cachen</li>
+          </ol>
+
+          <h3>Batch-Übersetzung</h3>
+          <p>
+            Die Funktion <code>batchTranslateArticleList()</code> übersetzt alle
+            Artikel in der aktuellen Ansicht nacheinander:
+          </p>
+          <ul>
+            <li>Sequenzielle Verarbeitung (ein Artikel nach dem anderen)</li>
+            <li>~150ms Verzögerung zwischen Artikeln (Rate-Limiting)</li>
+            <li>Per-Artikel Fortschritts-Events an den Renderer</li>
+            <li>Bereits übersetzte Artikel werden übersprungen (Cache)</li>
+          </ul>
+
+          <h3>Unterstützte Sprachen</h3>
+          <table aria-label="Unterstützte Übersetzungssprachen">
+            <thead>
+              <tr><th>Code</th><th>Sprache</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>de</td><td>Deutsch</td></tr>
+              <tr><td>en</td><td>Englisch</td></tr>
+              <tr><td>fr</td><td>Französisch</td></tr>
+              <tr><td>es</td><td>Spanisch</td></tr>
+              <tr><td>it</td><td>Italienisch</td></tr>
+              <tr><td>hi</td><td>Hindi</td></tr>
+              <tr><td>zh</td><td>Chinesisch</td></tr>
+              <tr><td>ru</td><td>Russisch</td></tr>
+              <tr><td>ja</td><td>Japanisch</td></tr>
+            </tbody>
+          </table>
+
+          <h2>💻 Das lokale Modell im Detail</h2>
+          <h3>Modell</h3>
+          <ul>
+            <li><strong>Name:</strong> Ministral-3-3B-Instruct-2512-Q4_K_M</li>
+            <li><strong>Quelle:</strong> HuggingFace (Mistral AI), via <code>modelDownloader.ts</code></li>
+            <li><strong>Größe:</strong> ~1,9 GB Download, ~4–5 GB VRAM im Betrieb</li>
+            <li><strong>Format:</strong> GGUF (Q4_K_M Quantisierung)</li>
+          </ul>
+
+          <h3>Server-Management</h3>
+          <p>
+            <code>localLlamaProvider.ts</code> verwaltet den gesamten
+            Lebenszyklus des llama.cpp-Servers:
+          </p>
+          <ul>
+            <li><strong>GPU-Erkennung:</strong> Prüft <code>nvidia-smi</code> auf CUDA-Verfügbarkeit, konfiguriert GPU-Layer-Offloading</li>
+            <li><strong>Port-Prüfung:</strong> Testet, ob der konfigurierte Port bereits belegt ist</li>
+            <li><strong>Prozess-Start:</strong> Spawned <code>llama-server</code> als Child Process mit den konfigurierten Parametern</li>
+            <li><strong>Health Check:</strong> Pollt <code>/health</code>-Endpoint bis der Server bereit ist (max. 60s Timeout)</li>
+            <li><strong>Graceful Shutdown:</strong> Sendet SIGTERM, forced SIGKILL nach Timeout</li>
+            <li><strong>Auto-Warmup:</strong> Bei App-Start wird das Modell vorgeladen, wenn der lokale Provider ausgewählt ist</li>
+          </ul>
+
+          <h3>CPU-Fallback</h3>
+          <p>
+            Wenn keine CUDA-GPU erkannt wird und CPU-Fallback aktiviert ist,
+            wird <code>llama-server</code> ohne GPU-Layer gestartet. Die
+            Verarbeitung ist dann ca. 10–20× langsamer, funktioniert aber
+            auf jeder CPU.
+          </p>
+
+          <div class="warn">
+            <strong>Wichtig:</strong> Beim ersten Start mit lokalem Modell muss
+            das Modell heruntergeladen werden (~1,9 GB). Der Download erfolgt
+            mit Fortschrittsanzeige und ist abbrechbar. Das Modell wird in
+            <code>{userData}/models/</code> gespeichert.
+          </div>
+
+          <h2>🔒 Sicherheit &amp; Datenschutz</h2>
+          <table aria-label="Sicherheitsfeatures">
+            <thead>
+              <tr><th>Feature</th><th>Umsetzung</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>API-Key-Verschlüsselung</td><td>Electron <code>safeStorage</code> (OS-Schlüsselbund: macOS Keychain, Windows DPAPI, Linux libsecret)</td></tr>
+              <tr><td>Lokale Daten</td><td>SQLite + JSON-Dateien, nur auf dem eigenen Rechner</td></tr>
+              <tr><td>Keine Telemetrie</td><td>Keine externen Requests außer RSS-Feeds und konfigurierter API</td></tr>
+              <tr><td>Lokales Modell</td><td>100% offline – keine Daten verlassen den Rechner</td></tr>
+              <tr><td>XSS-Schutz</td><td>DOMPurify filtert alle Artikel-Inhalte vor dem Rendering</td></tr>
+            </tbody>
+          </table>
+
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer" role="contentinfo">
+    <div class="footer-inner">
+      <p class="footer-copy">&copy; 2026 Dennis Michael Heine – Arrr RSS Reader</p>
+      <nav class="footer-links" aria-label="Rechtliches">
+        <a href="impressum.html">Impressum</a>
+        <a href="datenschutz.html">Datenschutz</a>
+        <a href="barrierefreiheit.html">Barrierefreiheit</a>
+      </nav>
+    </div>
+  </footer>
+
+  <script src="js/stars.js"></script>
+</body>
+</html>

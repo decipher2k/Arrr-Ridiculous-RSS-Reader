@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Datenschutz – Arrr RSS Reader</title>
+  <meta name="description" content="Datenschutzerklärung für den Arrr RSS Reader – lokale Anwendung, keine Cloud-Dienste.">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <canvas id="stars-canvas" aria-hidden="true"></canvas>
+  <div class="grid-overlay" aria-hidden="true"></div>
+
+  <header class="site-header" role="banner">
+    <nav class="nav-inner" aria-label="Hauptnavigation">
+      <a href="index.html" class="nav-logo">~/$ ARRR</a>
+      <div class="nav-links">
+        <a href="index.html">Start</a>
+        <a href="installation.html">Installation</a>
+        <a href="einrichtung.html">Einrichtung</a>
+        <a href="bedienung.html">Bedienung</a>
+        <a href="ki-funktionen.html">KI-Features</a>
+      </div>
+    </nav>
+  </header>
+
+  <main>
+    <section class="page-header">
+      <h1>Datenschutzerklärung</h1>
+    </section>
+
+    <section class="section" style="padding-top:0;">
+      <div class="container">
+        <div class="content">
+
+          <h2>1. Allgemeiner Hinweis</h2>
+          <p>
+            Der Schutz Ihrer persönlichen Daten ist uns ein wichtiges Anliegen.
+            Diese Datenschutzerklärung informiert Sie über Art, Umfang und Zweck
+            der Verarbeitung personenbezogener Daten im Zusammenhang mit der
+            Nutzung des Arrr RSS Readers.
+          </p>
+
+          <div class="note">
+            <strong>Wichtig:</strong> Der Arrr RSS Reader ist eine
+            <strong>rein lokale Desktop-Anwendung</strong>. Alle Daten werden
+            ausschließlich auf Ihrem Gerät gespeichert und verarbeitet.
+          </div>
+
+          <h2>2. Verantwortliche Stelle</h2>
+          <p>
+            <strong>Dennis Michael Heine</strong><br>
+            E-Mail: info@dennis-heine.de<br>
+            Web: <a href="https://bitgrund.de">https://bitgrund.de</a>
+          </p>
+
+          <h2>3. Datenerhebung und -speicherung</h2>
+
+          <h3>3.1 Lokale Datenspeicherung</h3>
+          <p>
+            Der Arrr RSS Reader speichert folgende Daten ausschließlich
+            <strong>lokal auf Ihrem Gerät</strong>:
+          </p>
+          <ul>
+            <li>Konfigurierte RSS/Atom-Feed-URLs</li>
+            <li>Abgerufene Artikel-Inhalte (Texte, Bilder)</li>
+            <li>Kategorie-Namen und -Struktur</li>
+            <li>Nutzer-Einstellungen (Sprache, KI-Konfiguration)</li>
+            <li>KI-Übersetzungen (Cache)</li>
+            <li>KI-Deduplizierungsergebnisse</li>
+          </ul>
+          <p>
+            Diese Daten werden in einer SQLite-Datenbank sowie einer
+            JSON-Konfigurationsdatei im Benutzerdatenverzeichnis Ihres
+            Betriebssystems gespeichert:
+          </p>
+          <ul>
+            <li><strong>Windows:</strong> <code>%APPDATA%/rss-reader-electron/</code></li>
+            <li><strong>macOS:</strong> <code>~/Library/Application Support/rss-reader-electron/</code></li>
+            <li><strong>Linux:</strong> <code>~/.config/rss-reader-electron/</code></li>
+          </ul>
+
+          <h3>3.2 API-Keys</h3>
+          <p>
+            Bei Nutzung eines externen KI-Providers wird Ihr API-Key mit der
+            <strong>Betriebssystem-eigenen Verschlüsselung</strong> gesichert:
+          </p>
+          <ul>
+            <li><strong>macOS:</strong> Keychain</li>
+            <li><strong>Windows:</strong> DPAPI (Data Protection API)</li>
+            <li><strong>Linux:</strong> libsecret / Kernel Keyring</li>
+          </ul>
+          <p>
+            Der API-Key wird zu keinem Zeitpunkt im Klartext auf der Festplatte
+            gespeichert und nie an Dritte weitergegeben.
+          </p>
+
+          <h2>4. Keine Übermittlung an Dritte</h2>
+          <p>
+            Der Arrr RSS Reader <strong>überträgt keine personenbezogenen Daten</strong>
+            an den Entwickler oder an Dritte. Es gibt:
+          </p>
+          <ul>
+            <li><strong>Keine Telemetrie</strong> oder Nutzungsanalyse</li>
+            <li><strong>Keine Crash-Reports</strong> (außer Sie leiten diese manuell weiter)</li>
+            <li><strong>Keine Werbung</strong> oder Tracking-Codes</li>
+            <li><strong>Keine Cloud-Synchronisation</strong></li>
+          </ul>
+
+          <h2>5. Externe Dienste – was das Programm tut</h2>
+
+          <h3>5.1 RSS/Atom-Feeds</h3>
+          <p>
+            Die App ruft RSS/Atom-Feeds von den von Ihnen konfigurierten URLs ab.
+            Dabei wird Ihre IP-Adresse an den jeweiligen Feed-Anbieter
+            übermittelt – wie bei jedem RSS-Reader. Dies ist technisch notwendig,
+            um die Artikel zu laden.
+          </p>
+
+          <h3>5.2 Artikel-Scraping</h3>
+          <p>
+            Wenn für einen Feed der Modus „Verlinkte News" (Scraping) aktiviert
+            ist, ruft die App zusätzlich die verlinkte Artikelseite ab, um den
+            vollständigen Inhalt zu extrahieren. Auch hierbei wird Ihre
+            IP-Adresse an den jeweiligen Webseiten-Betreiber übermittelt.
+          </p>
+
+          <h3>5.3 KI-Anbieter (optional)</h3>
+          <p>
+            Wenn Sie einen externen KI-Provider (OpenAI-kompatible API)
+            konfigurieren, werden Artikeltexte zur Verarbeitung
+            (Deduplizierung, Übersetzung) an die von Ihnen angegebene API-URL
+            gesendet. Welche Daten dabei übertragen werden, liegt in Ihrer
+            Verantwortung und hängt vom jeweiligen Anbieter ab.
+          </p>
+
+          <div class="warn">
+            <strong>Empfehlung:</strong> Bei Nutzung des lokalen Modells
+            (llama.cpp) werden <strong>keine Daten an externe Server
+            gesendet</strong>. Die gesamte KI-Verarbeitung findet auf Ihrem
+            Rechner statt.
+          </div>
+
+          <h3>5.4 Modell-Download</h3>
+          <p>
+            Bei Nutzung des lokalen KI-Modells lädt die App das Modell
+            (Ministral-3-3B-Instruct) von HuggingFace-Servern herunter.
+            Dies ist ein einmaliger Download. Ihre IP-Adresse wird dabei an
+            HuggingFace übermittelt.
+          </p>
+
+          <h2>6. Ihre Rechte</h2>
+          <p>
+            Da die Anwendung lokal läuft und wir keine personenbezogenen Daten
+            erheben, sind die klassischen Betroffenenrechte nach DSGVO
+            (Auskunft, Berichtigung, Löschung, Einschränkung,
+            Datenübertragbarkeit, Widerspruch) für die Anwendung selbst nicht
+            anwendbar – Sie haben die volle Kontrolle über Ihre lokalen Daten.
+          </p>
+          <p>
+            Bezüglich dieser Website gelten die allgemeinen Bestimmungen der
+            DSGVO. Sie können jederzeit Auskunft über die zu Ihrer Person
+            gespeicherten Daten verlangen. Bitte wenden Sie sich hierzu an die
+            oben genannte E-Mail-Adresse.
+          </p>
+
+          <h2>7. Cookies &amp; Website-Tracking</h2>
+          <p>
+            Diese Website verwendet <strong>keine Cookies</strong> und
+            <strong>kein Tracking</strong>. Es werden keine Analyse-Dienste
+            (wie Google Analytics) eingesetzt.
+          </p>
+
+          <h2>8. Änderungen dieser Datenschutzerklärung</h2>
+          <p>
+            Wir behalten uns vor, diese Datenschutzerklärung anzupassen, damit
+            sie stets den aktuellen rechtlichen Anforderungen entspricht oder
+            um Änderungen unserer Leistungen in der Datenschutzerklärung
+            umzusetzen. Für Ihren erneuten Besuch gilt dann die neue
+            Datenschutzerklärung.
+          </p>
+
+          <p><em>Stand: Mai 2026</em></p>
+
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer" role="contentinfo">
+    <div class="footer-inner">
+      <p class="footer-copy">&copy; 2026 Dennis Michael Heine – Arrr RSS Reader</p>
+      <nav class="footer-links" aria-label="Rechtliches">
+        <a href="impressum.html">Impressum</a>
+        <a href="datenschutz.html" aria-current="page">Datenschutz</a>
+        <a href="barrierefreiheit.html">Barrierefreiheit</a>
+      </nav>
+    </div>
+  </footer>
+
+  <script src="js/stars.js"></script>
+</body>
+</html>

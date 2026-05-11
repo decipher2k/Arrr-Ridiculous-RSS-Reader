@@ -1,0 +1,19 @@
+appId: com.example.rss-reader
+productName: RSS Reader
+directories:
+  output: release
+files:
+  - dist
+  - package.json
+mac:
+  target:
+    - dmg
+  category: public.app-category.news
+win:
+  target:
+    - nsis
+linux:
+  target:
+    - AppImage
+    - deb
+  category: Network;News

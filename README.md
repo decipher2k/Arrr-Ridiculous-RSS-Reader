@@ -8,7 +8,7 @@ Built with Electron, React, TypeScript, and SQLite. Runs on **Windows**, **macOS
 
 ## ✨ Features
 
-- **News-like UI** – Three-panel newspaper layout with image-rich article cards, not a plain list
+- **News-like UI** – Two-panel newspaper layout with image-rich article cards, not a plain list
 - **AI Deduplication** – Semantic duplicate detection across feeds using local or remote LLMs
 - **AI Translation & Summarization** – Translate and summarize articles into 9 languages (DE, EN, FR, ES, IT, HI, ZH, RU, JA)
 - **Local AI, Zero Dependencies** – Bundled llama.cpp + Ministral-3B model. No Ollama, no Docker, no setup required

@@ -143,18 +143,41 @@ function getDatabase() {
     return db;
 }
 async function runMigrations() {
+    await ensureArticleContentSourceColumn();
+    await backfillArticleContentSource();
     const migrationDone = await getRow("SELECT value FROM app_metadata WHERE key = 'json_migration_done'");
-    if (migrationDone?.value === '1')
-        return;
-    const dir = getDbDir();
-    const jsonFiles = ['categories.json', 'feeds.json', 'feedCategories.json', 'articles.json', 'aiDuplicateRuns.json'];
-    const hasJson = jsonFiles.some((f) => fs_1.default.existsSync(path_1.default.join(dir, f)));
-    if (hasJson) {
-        console.log('[DB] Migrating JSON data to SQLite...');
-        await migrateJsonData();
-        console.log('[DB] JSON migration complete.');
+    if (migrationDone?.value !== '1') {
+        const dir = getDbDir();
+        const jsonFiles = ['categories.json', 'feeds.json', 'feedCategories.json', 'articles.json', 'aiDuplicateRuns.json'];
+        const hasJson = jsonFiles.some((f) => fs_1.default.existsSync(path_1.default.join(dir, f)));
+        if (hasJson) {
+            console.log('[DB] Migrating JSON data to SQLite...');
+            await migrateJsonData();
+            console.log('[DB] JSON migration complete.');
+        }
+        await runSql("INSERT OR REPLACE INTO app_metadata (key, value) VALUES ('json_migration_done', '1')");
     }
-    await runSql("INSERT OR REPLACE INTO app_metadata (key, value) VALUES ('json_migration_done', '1')");
+}
+async function ensureArticleContentSourceColumn() {
+    const columns = await getAll('PRAGMA table_info(articles)');
+    if (!columns.some((column) => column.name === 'contentSource')) {
+        await runSql('ALTER TABLE articles ADD COLUMN contentSource TEXT');
+    }
+}
+async function backfillArticleContentSource() {
+    await runSql(`
+    UPDATE articles
+    SET contentSource = CASE
+      WHEN COALESCE((SELECT contentMode FROM feeds WHERE feeds.id = articles.feedId), 'scraped') = 'feed'
+        THEN 'feed'
+      ELSE 'scraped'
+    END
+    WHERE contentSource IS NULL
+      AND contentHtml IS NOT NULL
+      AND TRIM(contentHtml) <> ''
+      AND contentText IS NOT NULL
+      AND TRIM(contentText) <> ''
+  `);
 }
 async function migrateJsonData() {
     const dir = getDbDir();
@@ -195,7 +218,7 @@ async function migrateJsonData() {
         renameJson('feedCategories.json');
         const articles = readJsonFile('articles.json');
         for (const a of articles) {
-            await runSql('INSERT OR IGNORE INTO articles (id, feedId, title, description, link, imageUrl, teaserImageUrl, publishedAt, fetchedAt, contentHtml, contentText, duplicateGroupId, isHiddenDuplicate) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', [
+            await runSql('INSERT OR IGNORE INTO articles (id, feedId, title, description, link, imageUrl, teaserImageUrl, publishedAt, fetchedAt, contentHtml, contentText, contentSource, duplicateGroupId, isHiddenDuplicate) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', [
                 a.id,
                 a.feedId,
                 a.title,
@@ -207,6 +230,7 @@ async function migrateJsonData() {
                 a.fetchedAt,
                 a.contentHtml ?? null,
                 a.contentText ?? null,
+                a.contentSource ?? null,
                 a.duplicateGroupId ?? null,
                 a.isHiddenDuplicate ?? 0,
             ]);
@@ -393,8 +417,8 @@ async function getArticleById(id) {
 }
 async function insertOrUpdateArticle(article) {
     const now = new Date().toISOString();
-    await runSql(`INSERT INTO articles (id, feedId, title, description, link, imageUrl, teaserImageUrl, publishedAt, fetchedAt, contentHtml, contentText, duplicateGroupId, isHiddenDuplicate)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, 0)
+    await runSql(`INSERT INTO articles (id, feedId, title, description, link, imageUrl, teaserImageUrl, publishedAt, fetchedAt, contentHtml, contentText, contentSource, duplicateGroupId, isHiddenDuplicate)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, 0)
      ON CONFLICT(id) DO UPDATE SET
        feedId = excluded.feedId,
        title = excluded.title,
@@ -404,8 +428,9 @@ async function insertOrUpdateArticle(article) {
        teaserImageUrl = excluded.teaserImageUrl,
        publishedAt = excluded.publishedAt,
        fetchedAt = excluded.fetchedAt,
-       contentHtml = excluded.contentHtml,
-       contentText = excluded.contentText,
+       contentHtml = CASE WHEN excluded.contentSource IS NULL THEN articles.contentHtml ELSE excluded.contentHtml END,
+       contentText = CASE WHEN excluded.contentSource IS NULL THEN articles.contentText ELSE excluded.contentText END,
+       contentSource = COALESCE(excluded.contentSource, articles.contentSource),
        duplicateGroupId = NULL,
        isHiddenDuplicate = 0`, [
         article.id,
@@ -419,6 +444,7 @@ async function insertOrUpdateArticle(article) {
         now,
         article.contentHtml,
         article.contentText,
+        article.contentSource ?? null,
     ]);
 }
 async function batchInsertArticles(newArticles) {
@@ -426,8 +452,8 @@ async function batchInsertArticles(newArticles) {
     await runSql('BEGIN TRANSACTION');
     try {
         for (const article of newArticles) {
-            await runSql(`INSERT INTO articles (id, feedId, title, description, link, imageUrl, teaserImageUrl, publishedAt, fetchedAt, contentHtml, contentText, duplicateGroupId, isHiddenDuplicate)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, 0)
+            await runSql(`INSERT INTO articles (id, feedId, title, description, link, imageUrl, teaserImageUrl, publishedAt, fetchedAt, contentHtml, contentText, contentSource, duplicateGroupId, isHiddenDuplicate)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, 0)
          ON CONFLICT(id) DO UPDATE SET
            feedId = excluded.feedId,
            title = excluded.title,
@@ -437,8 +463,9 @@ async function batchInsertArticles(newArticles) {
            teaserImageUrl = excluded.teaserImageUrl,
            publishedAt = excluded.publishedAt,
            fetchedAt = excluded.fetchedAt,
-           contentHtml = excluded.contentHtml,
-           contentText = excluded.contentText,
+           contentHtml = CASE WHEN excluded.contentSource IS NULL THEN articles.contentHtml ELSE excluded.contentHtml END,
+           contentText = CASE WHEN excluded.contentSource IS NULL THEN articles.contentText ELSE excluded.contentText END,
+           contentSource = COALESCE(excluded.contentSource, articles.contentSource),
            duplicateGroupId = NULL,
            isHiddenDuplicate = 0`, [
                 article.id,
@@ -452,6 +479,7 @@ async function batchInsertArticles(newArticles) {
                 now,
                 article.contentHtml,
                 article.contentText,
+                article.contentSource ?? null,
             ]);
         }
         await runSql('COMMIT');
@@ -473,8 +501,8 @@ async function findExistingArticle(feedId, guid, link, normalizedTitle) {
     const byTitle = await getRow('SELECT * FROM articles WHERE feedId = ? AND LOWER(TRIM(title)) = ?', [feedId, normalizedTitle]);
     return byTitle;
 }
-async function updateArticleContent(id, contentHtml, contentText) {
-    await runSql('UPDATE articles SET contentHtml = ?, contentText = ? WHERE id = ?', [contentHtml, contentText, id]);
+async function updateArticleContent(id, contentHtml, contentText, contentSource) {
+    await runSql('UPDATE articles SET contentHtml = ?, contentText = ?, contentSource = ? WHERE id = ?', [contentHtml, contentText, contentSource, id]);
 }
 async function updateArticleTeaserImage(id, teaserImageUrl) {
     await runSql('UPDATE articles SET teaserImageUrl = ? WHERE id = ?', [teaserImageUrl, id]);

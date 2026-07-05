@@ -15,6 +15,7 @@
 import { callChatCompletion } from './openAiCompatibleClient';
 import { getTranslation, saveTranslation } from '../db/translations';
 import { getArticleById } from '../db';
+import { scrapeArticle } from '../articles/scrapeArticle';
 import type { AppSettings, ArticleTranslation, TranslateArticleResult } from '../../shared/types';
 
 const LANGUAGE_NAMES: Record<string, string> = {
@@ -28,6 +29,8 @@ const LANGUAGE_NAMES: Record<string, string> = {
   ru: 'Russisch',
   ja: 'Japanisch',
 };
+
+const FULL_TRANSLATION_CACHE_MARKER = '<!-- translation-mode:full-v3 -->';
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -43,7 +46,7 @@ export async function translateAndSummarizeArticle(
 ): Promise<TranslateArticleResult> {
   console.log('[translateAndSummarizeArticle] articleId:', articleId, 'targetLanguage:', targetLanguage);
   const cached = await getTranslation(articleId, targetLanguage);
-  if (cached && cached.translatedHtml) {
+  if (cached && cached.translatedHtml && cached.translatedHtml.includes(FULL_TRANSLATION_CACHE_MARKER)) {
     console.log('[translateAndSummarizeArticle] Cache hit with full translation');
     return {
       success: true,
@@ -59,15 +62,32 @@ export async function translateAndSummarizeArticle(
     return { success: false, title: '', html: '', wordCount: 0, cached: false, message: 'Article not found' };
   }
 
-  const rawContentText = article.contentText || article.description || '';
-  if (!rawContentText.trim()) {
+  const scrapedContent = await scrapeArticle(articleId);
+  if (!scrapedContent) {
+    return {
+      success: false,
+      title: '',
+      html: '',
+      wordCount: 0,
+      cached: false,
+      message: 'Der verlinkte Artikel konnte nicht geladen werden. Die OpenAI-Uebersetzung kann nur lokal geladenen Artikelinhalt uebersetzen.',
+    };
+  }
+
+  const rawContentHtml = scrapedContent.contentHtml;
+  const rawContentText = scrapedContent.contentText;
+  const sourceContent = rawContentHtml.trim()
+    ? rawContentHtml
+    : textToHtml(rawContentText);
+
+  if (!sourceContent.trim()) {
     return { success: false, title: '', html: '', wordCount: 0, cached: false, message: 'Article has no content to translate' };
   }
 
-  const MAX_CONTENT_CHARS = 12000;
-  const contentText = rawContentText.length > MAX_CONTENT_CHARS
-    ? rawContentText.slice(0, MAX_CONTENT_CHARS) + '\n\n[Article continues but was truncated due to length.]'
-    : rawContentText;
+  const MAX_CONTENT_CHARS = 16000;
+  const contentHtml = sourceContent.length > MAX_CONTENT_CHARS
+    ? sourceContent.slice(0, MAX_CONTENT_CHARS) + '\n\n<p>[Article continues but was truncated due to length.]</p>'
+    : sourceContent;
 
   const langName = LANGUAGE_NAMES[targetLanguage] || targetLanguage;
 
@@ -76,31 +96,36 @@ export async function translateAndSummarizeArticle(
       {
         role: 'system',
         content:
-          `You are a professional translator and summarizer. Your task is to:
-1. Translate the given article into ${langName}.
-2. Summarize it to approximately 500 words while keeping the most important facts, quotes, and key information.
-3. Return ONLY valid JSON, no markdown, no explanations.
+          `You are a professional news translator. Your task is to translate the given article into ${langName}.
+Return ONLY valid JSON, no markdown, no explanations.
 
 The JSON must have this exact structure and must be COMPLETE (not truncated):
 {
-  "title": "The translated and summarized title",
-  "description": "A 1-2 sentence summary of the article in ${langName}",
-  "html": "<h2>Section heading</h2><p>Paragraph text...</p><p>Next paragraph...</p>",
+  "title": "The translated title",
+  "description": "A short translated teaser or empty string",
+  "html": "<h2>Translated section heading</h2><p>Translated paragraph text...</p><img src=\\"https://example.com/image.jpg\\" alt=\\"Translated alt text\\" style=\\"max-width:100%;height:auto;margin-bottom:1rem;\\" />",
   "wordCount": 512
 }
 
 IMPORTANT:
-- The "html" field must contain the FULL translated and summarized text, ending with a complete sentence and closing tags.
+- Translate the article completely. Do NOT summarize, shorten, omit, rewrite, or add information.
+- Preserve the original HTML structure as much as possible.
+- Keep all <img> tags in their original positions.
+- Keep image src and style attributes unchanged.
+- Translate image alt text when it exists.
+- Preserve paragraph and heading order.
+- The "html" field must contain the FULL translated article, ending with a complete sentence and closing tags.
 - Do NOT cut off the output mid-paragraph.
-- Use only <h2>, <h3>, and <p> tags
-- No <h1> tags (the title is separate)
-- No images, no links, no styling attributes`,
+- Use only <h2>, <h3>, <p>, <img>, and <br> tags.
+- Do not include <h1> tags; return the article title only in the JSON "title" field.
+- If the source HTML contains an <h1> that repeats the title, omit it from "html".
+- No links or scripts.`,
       },
       {
         role: 'user',
-        content: `Original title: ${article.title}\n\nOriginal article:\n${contentText}`,
+        content: `Original title: ${article.title}\n\nOriginal article HTML:\n${contentHtml}`,
       },
-    ], 3500);
+    ], 5000);
 
     let parsed: { title: string; description: string; html: string; wordCount: number };
     try {
@@ -121,7 +146,7 @@ IMPORTANT:
       targetLanguage,
       translatedTitle: parsed.title,
       translatedDescription: parsed.description || '',
-      translatedHtml: parsed.html,
+      translatedHtml: `${FULL_TRANSLATION_CACHE_MARKER}\n${parsed.html}`,
       wordCount: parsed.wordCount,
       createdAt: new Date().toISOString(),
     };
@@ -230,9 +255,50 @@ function parseTranslationResponse(text: string): { title: string; description: s
 
 function sanitizeHtml(html: string): string {
   return html
-    .replace(/<(?!\/?(h2|h3|p|br)\b)[^>]*>/gi, '')
+    .replace(/\son\w+="[^"]*"/gi, '')
+    .replace(/\son\w+='[^']*'/gi, '')
+    .replace(/<(?!\/?(h2|h3|p|img|br)\b)[^>]*>/gi, '')
+    .replace(/<img\b([^>]*)>/gi, (_match, attrs: string) => sanitizeImageTag(attrs))
     .replace(/\s+/g, ' ')
     .trim();
+}
+
+function sanitizeImageTag(attrs: string): string {
+  const src = extractAttribute(attrs, 'src');
+  if (!src || /^\s*javascript:/i.test(src)) return '';
+
+  const alt = extractAttribute(attrs, 'alt') || '';
+  const style = extractAttribute(attrs, 'style') || 'max-width:100%;height:auto;margin-bottom:1rem;';
+
+  return `<img src="${escapeHtmlAttribute(src)}" alt="${escapeHtmlAttribute(alt)}" style="${escapeHtmlAttribute(style)}" />`;
+}
+
+function extractAttribute(attrs: string, name: string): string | null {
+  const re = new RegExp(`\\s${name}\\s*=\\s*("([^"]*)"|'([^']*)'|([^\\s>]+))`, 'i');
+  const match = attrs.match(re);
+  return match ? (match[2] || match[3] || match[4] || '') : null;
+}
+
+function textToHtml(text: string): string {
+  return text
+    .split(/\n{2,}/)
+    .map((paragraph) => paragraph.trim())
+    .filter(Boolean)
+    .map((paragraph) => `<p>${escapeHtml(paragraph)}</p>`)
+    .join('\n');
+}
+
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+function escapeHtmlAttribute(text: string): string {
+  return escapeHtml(text).replace(/`/g, '&#096;');
 }
 
 // NEW: Sequential single-article batch translation with per-article events
@@ -287,7 +353,7 @@ export async function batchTranslateArticleList(
             `{"translatedTitle": "...", "translatedDescription": "..."}\n\n` +
             `Rules:\n` +
             `- Translate the title accurately\n` +
-            `- For description: translate and keep it concise (1-2 sentences max)\n` +
+            `- Translate the description without summarizing, shortening, or adding information\n` +
             `- If description is empty, return an empty string`,
         },
         {

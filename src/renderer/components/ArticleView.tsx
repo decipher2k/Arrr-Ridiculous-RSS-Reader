@@ -35,11 +35,11 @@ export default function ArticleView() {
   // Ensure translation is triggered when article or language changes
   useEffect(() => {
     console.log('[ArticleView useEffect] selectedArticleId:', selectedArticleId, 'selectedTranslationLanguage:', selectedTranslationLanguage, 'aiEnabled:', settings?.aiTranslationEnabled, 'isTranslating:', translation.isTranslating, 'translatedHtml:', translation.translatedHtml, 'error:', translation.translationError);
-    if (selectedArticleId && selectedTranslationLanguage && settings?.aiTranslationEnabled && !translation.isTranslating && !translation.translatedHtml && !translation.translationError) {
+    if (selectedArticleId && selectedTranslationLanguage && settings?.aiTranslationEnabled && !isLoadingContent && !translation.isTranslating && !translation.translatedHtml && !translation.translationError) {
       console.log('[ArticleView useEffect] Triggering translateCurrentArticle');
       useAppStore.getState().translateCurrentArticle();
     }
-  }, [selectedArticleId, selectedTranslationLanguage, settings?.aiTranslationEnabled, translation.isTranslating, translation.translatedHtml, translation.translationError]);
+  }, [selectedArticleId, selectedTranslationLanguage, settings?.aiTranslationEnabled, isLoadingContent, currentArticleContent, translation.isTranslating, translation.translatedHtml, translation.translationError]);
 
   const article = articles.find((a) => a.id === selectedArticleId);
 

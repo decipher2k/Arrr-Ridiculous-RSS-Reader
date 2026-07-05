@@ -20,7 +20,7 @@ import ArticleList from './components/ArticleList';
 import ArticleView from './components/ArticleView';
 import SettingsModal from './components/SettingsModal';
 import ManageFeedsModal from './components/ManageFeedsModal';
-import { Loader2, Wand2, Eye, EyeOff, Languages } from 'lucide-react';
+import { Loader2, Wand2, Eye, EyeOff, Languages, Sparkles, AlertCircle } from 'lucide-react';
 import { SUPPORTED_LANGUAGES } from '../shared/constants';
 
 export default function App() {
@@ -32,6 +32,11 @@ export default function App() {
     runDeduplication,
     showDuplicates,
     setShowDuplicates,
+    niceNewsEnabled,
+    isNiceNewsFiltering,
+    niceNewsFilteredCount,
+    niceNewsError,
+    setNiceNewsEnabled,
     selectedCategoryId,
     selectedTranslationLanguage,
     setSelectedTranslationLanguage,
@@ -83,6 +88,35 @@ export default function App() {
           {selectedCategoryId ? t('app.categorySelected') : t('app.noCategorySelected')}
         </div>
         <div className="flex items-center gap-2">
+          <label
+            className={`flex items-center gap-1.5 px-2 py-1 text-xs border rounded ${
+              niceNewsError
+                ? 'bg-red-50 border-red-300 text-red-700'
+                : niceNewsEnabled
+                ? 'bg-emerald-50 border-emerald-300 text-emerald-700'
+                : 'border-slate-300 text-slate-700 hover:bg-slate-50'
+            } ${!selectedCategoryId ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+            title={niceNewsError || (niceNewsEnabled ? t('app.niceNewsActive') : t('app.niceNewsFilter'))}
+          >
+            <input
+              type="checkbox"
+              checked={niceNewsEnabled}
+              disabled={!selectedCategoryId}
+              onChange={(e) => setNiceNewsEnabled(e.target.checked)}
+              className="h-3 w-3 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+            />
+            {isNiceNewsFiltering ? (
+              <Loader2 size={12} className="animate-spin" />
+            ) : niceNewsError ? (
+              <AlertCircle size={12} />
+            ) : (
+              <Sparkles size={12} />
+            )}
+            <span>{t('app.niceNews')}</span>
+            {niceNewsEnabled && niceNewsFilteredCount > 0 && (
+              <span className="text-[10px] text-emerald-600">-{niceNewsFilteredCount}</span>
+            )}
+          </label>
           <button
             onClick={() => setShowDuplicates(!showDuplicates)}
             className="flex items-center gap-1 px-2 py-1 text-xs border border-slate-300 rounded hover:bg-slate-50"

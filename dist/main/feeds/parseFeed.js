@@ -64,6 +64,7 @@ async function fetchAndParseFeed(feed) {
         const contentHtml = feed.contentMode === 'feed'
             ? (item.contentEncoded || item.content || null)
             : null;
+        const contentText = contentHtml ? sanitizeDescription(contentHtml) : null;
         const imageUrl = (0, imageExtractor_1.extractArticleImageFromFeedItem)(item) || null;
         const article = {
             id: articleId,
@@ -76,7 +77,8 @@ async function fetchAndParseFeed(feed) {
             publishedAt,
             fetchedAt: new Date().toISOString(),
             contentHtml,
-            contentText: null,
+            contentText,
+            contentSource: contentHtml ? 'feed' : null,
             duplicateGroupId: null,
             isHiddenDuplicate: 0,
         };

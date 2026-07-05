@@ -51,6 +51,7 @@ export interface Article {
   fetchedAt: string;
   contentHtml: string | null;
   contentText: string | null;
+  contentSource?: 'feed' | 'scraped' | null;
   duplicateGroupId: string | null;
   isHiddenDuplicate: number; // SQLite boolean as 0/1
   feedTitle?: string; // joined for UI
@@ -157,6 +158,18 @@ export interface TranslateArticleResult {
   message?: string;
 }
 
+export interface NiceNewsArticleInput {
+  id: string;
+  title: string;
+}
+
+export interface NiceNewsFilterResult {
+  success: boolean;
+  negativeArticleIds: string[];
+  usedFallbackOnly?: boolean;
+  message?: string;
+}
+
 export interface ModelDownloadProgress {
   percent: number;
   bytesDownloaded: number;
@@ -186,6 +199,7 @@ export type IpcChannels =
   | 'ai:translateArticle'
   | 'ai:batchTranslateArticles'
   | 'ai:getTranslations'
+  | 'ai:filterNiceNews'
   | 'ai:downloadModel'
   | 'ai:cancelDownload'
   | 'ai:getLocalModelStatus'

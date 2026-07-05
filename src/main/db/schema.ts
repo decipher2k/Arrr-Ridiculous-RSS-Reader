@@ -53,6 +53,7 @@ CREATE TABLE IF NOT EXISTS articles (
   fetchedAt TEXT NOT NULL,
   contentHtml TEXT,
   contentText TEXT,
+  contentSource TEXT,
   duplicateGroupId TEXT,
   isHiddenDuplicate INTEGER NOT NULL DEFAULT 0,
   FOREIGN KEY (feedId) REFERENCES feeds(id) ON DELETE CASCADE

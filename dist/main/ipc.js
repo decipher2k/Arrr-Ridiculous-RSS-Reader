@@ -23,6 +23,7 @@ const db_1 = require("./db");
 const parseFeed_1 = require("./feeds/parseFeed");
 const scrapeArticle_1 = require("./articles/scrapeArticle");
 const deduplicateTitles_1 = require("./ai/deduplicateTitles");
+const niceNewsFilter_1 = require("./ai/niceNewsFilter");
 const translateArticle_1 = require("./ai/translateArticle");
 const translations_1 = require("./db/translations");
 const settingsStore_1 = require("./settings/settingsStore");
@@ -136,6 +137,10 @@ function registerIpcHandlers() {
     });
     electron_1.ipcMain.handle('ai:getTranslations', async (_event, articleIds, targetLanguage) => {
         return (0, translations_1.getTranslationsForArticles)(articleIds, targetLanguage);
+    });
+    electron_1.ipcMain.handle('ai:filterNiceNews', async (_event, articles) => {
+        const settings = await (0, settingsStore_1.loadSettings)();
+        return (0, niceNewsFilter_1.filterNiceNewsTitles)(articles, settings);
     });
     // Local model download
     electron_1.ipcMain.handle('ai:downloadModel', async () => {

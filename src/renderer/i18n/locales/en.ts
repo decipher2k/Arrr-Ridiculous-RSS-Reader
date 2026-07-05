@@ -19,6 +19,9 @@ export default {
   'app.showDuplicates': 'Show duplicates',
   'app.hideDuplicates': 'Hide duplicates',
   'app.deduplicate': 'Deduplicate',
+  'app.niceNews': 'Nice News',
+  'app.niceNewsFilter': 'Hide negative news with AI',
+  'app.niceNewsActive': 'Nice News is active',
   'app.none': '<None>',
 
   // CategoryBar
@@ -49,9 +52,9 @@ export default {
   'articleView.openInBrowser': 'Open in browser',
   'articleView.original': 'Original',
   'articleView.translated': 'Translated',
-  'articleView.translationSummary': 'AI translation / Summary',
+  'articleView.translationSummary': 'AI translation',
   'articleView.words': 'words',
-  'articleView.translating': 'Translating and summarizing article...',
+  'articleView.translating': 'Translating article...',
   'articleView.translationError': 'Translation failed',
   'articleView.retry': 'Retry',
 
@@ -66,7 +69,7 @@ export default {
   'settings.model': 'Model',
   'settings.temperature': 'Temperature',
   'settings.enableDeduplication': 'Enable AI deduplication',
-  'settings.enableTranslation': 'Enable AI translation & summarization',
+  'settings.enableTranslation': 'Enable AI translation',
   'settings.enableAutoFetch': 'Enable automatic feed fetching',
   'settings.fetchInterval': 'Fetch interval (minutes)',
   'settings.uiLanguage': 'Interface language',

@@ -33,13 +33,14 @@ import {
 import { fetchAndParseFeed } from './feeds/parseFeed';
 import { scrapeArticle } from './articles/scrapeArticle';
 import { deduplicateCategory } from './ai/deduplicateTitles';
+import { filterNiceNewsTitles } from './ai/niceNewsFilter';
 import { translateAndSummarizeArticle, batchTranslateArticleList } from './ai/translateArticle';
 import { getTranslationsForArticles } from './db/translations';
 import { loadSettings, saveSettings } from './settings/settingsStore';
 import { getProvider, disposeCurrentProvider, warmupProvider } from './ai/aiProviderFactory';
 import { ModelDownloader } from './ai/modelDownloader';
 import { getDefaultModelPath, getModelDownloadUrl } from './ai/localLlamaProvider';
-import type { AppSettings, CreateCategoryInput, UpdateCategoryInput, CreateFeedInput, UpdateFeedInput } from '../shared/types';
+import type { AppSettings, CreateCategoryInput, UpdateCategoryInput, CreateFeedInput, UpdateFeedInput, NiceNewsArticleInput } from '../shared/types';
 
 let activeDownloader: ModelDownloader | null = null;
 
@@ -158,6 +159,11 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle('ai:getTranslations', async (_event, articleIds: string[], targetLanguage: string) => {
     return getTranslationsForArticles(articleIds, targetLanguage);
+  });
+
+  ipcMain.handle('ai:filterNiceNews', async (_event, articles: NiceNewsArticleInput[]) => {
+    const settings = await loadSettings();
+    return filterNiceNewsTitles(articles, settings);
   });
 
   // Local model download

@@ -50,18 +50,12 @@ exports.extractArticleContent = extractArticleContent;
 const cheerio = __importStar(require("cheerio"));
 function extractArticleContent(html, pageUrl) {
     const $ = cheerio.load(html);
+    const structuredFallback = extractStructuredFallback($);
     // Remove unwanted elements
-    $('script, style, nav, header, footer, aside, .sidebar, .advertisement, .ads, #cookie-banner, .cookie-banner, [class*="cookie"], [id*="cookie"]').remove();
-    // Try to find main content container
-    let $container = $('article').first();
-    if (!$container.length) {
-        $container = $('main').first();
-    }
-    if (!$container.length) {
-        $container = $('body');
-    }
+    $('script, style, template, nav, footer, aside, .sidebar, .advertisement, .ads, #cookie-banner, .cookie-banner, [class*="cookie"], [id*="cookie"]').remove();
+    const $container = findBestContentContainer($);
     // Extract title
-    const title = $('h1').first().text().trim() || $('title').first().text().trim() || '';
+    const title = $('h1').first().text().trim() || structuredFallback.title || $('title').first().text().trim() || '';
     // Extract teaser image (Open Graph / Twitter Card)
     let teaserImageUrl = null;
     const ogImage = $('meta[property="og:image"]').attr('content');
@@ -128,14 +122,152 @@ function extractArticleContent(html, pageUrl) {
             paragraphs.push(text);
         }
     });
+    let finalText = paragraphs.join('\n\n');
+    if (finalText.length < 150) {
+        const fallbackParagraphs = structuredFallback.paragraphs.length > 0
+            ? structuredFallback.paragraphs
+            : extractMetaFallbackParagraphs($);
+        const fallbackText = fallbackParagraphs.join('\n\n');
+        if (fallbackText.length > finalText.length) {
+            finalHtml = buildFallbackHtml(title, teaserImageUrl, fallbackParagraphs);
+            paragraphs.splice(0, paragraphs.length, ...fallbackParagraphs);
+            finalText = fallbackText;
+        }
+    }
     return {
         title,
         teaserImageUrl,
         headings: [],
         paragraphs,
         html: finalHtml,
-        text: paragraphs.join('\n\n'),
+        text: finalText,
     };
+}
+function findBestContentContainer($) {
+    const selector = [
+        '.article-content',
+        '.article-layout__content',
+        '.js-upscore-article-content-for-paywall',
+        '.js-upscore-article-content',
+        '.entry-content',
+        '.post-content',
+        '.story-content',
+        '.c-article-content',
+        '[itemprop="articleBody"]',
+        '[role="main"]',
+        'article',
+        'main',
+    ].join(', ');
+    let best = null;
+    let bestScore = 0;
+    $(selector).each((_, el) => {
+        const element = el;
+        const score = scoreContentElement($, element);
+        if (score > bestScore) {
+            best = element;
+            bestScore = score;
+        }
+    });
+    return best && bestScore > 80 ? $(best) : $('body');
+}
+function scoreContentElement($, el) {
+    const $el = $(el);
+    const paragraphText = $el
+        .find('p')
+        .map((_, p) => $(p).text().trim())
+        .get()
+        .filter((text) => text.length >= 30)
+        .join(' ');
+    const headingText = $el
+        .find('h1,h2,h3')
+        .map((_, h) => $(h).text().trim())
+        .get()
+        .join(' ');
+    const className = String($el.attr('class') || '');
+    const id = String($el.attr('id') || '');
+    const contentBoost = /(article|content|meldung|story|post)/i.test(`${className} ${id}`) ? 250 : 0;
+    return paragraphText.length + headingText.length * 0.25 + contentBoost;
+}
+function extractStructuredFallback($) {
+    let title = '';
+    let body = '';
+    let description = '';
+    $('script[type="application/ld+json"]').each((_, el) => {
+        if (body)
+            return;
+        const raw = $(el).contents().text().trim();
+        if (!raw)
+            return;
+        try {
+            const parsed = JSON.parse(raw);
+            const article = findStructuredArticle(parsed);
+            if (article) {
+                title = asString(article.headline) || title;
+                body = asString(article.articleBody) || body;
+                description = asString(article.description) || description;
+            }
+        }
+        catch {
+            // Ignore malformed structured data.
+        }
+    });
+    const text = body || description;
+    return {
+        title,
+        paragraphs: splitFallbackText(text),
+    };
+}
+function findStructuredArticle(value) {
+    if (!value || typeof value !== 'object')
+        return null;
+    if (Array.isArray(value)) {
+        for (const item of value) {
+            const found = findStructuredArticle(item);
+            if (found)
+                return found;
+        }
+        return null;
+    }
+    const record = value;
+    const type = record['@type'];
+    const types = Array.isArray(type) ? type.map(String) : [String(type || '')];
+    if (types.some((entry) => /^(NewsArticle|Article|BlogPosting)$/i.test(entry))) {
+        return record;
+    }
+    const graph = record['@graph'];
+    if (Array.isArray(graph)) {
+        return findStructuredArticle(graph);
+    }
+    return null;
+}
+function extractMetaFallbackParagraphs($) {
+    const candidates = [
+        $('meta[name="description"]').attr('content'),
+        $('meta[property="og:description"]').attr('content'),
+        $('meta[property="twitter:description"]').attr('content'),
+    ];
+    const text = candidates.find((candidate) => candidate && candidate.trim().length > 0) || '';
+    return splitFallbackText(text);
+}
+function splitFallbackText(text) {
+    return text
+        .split(/\n{2,}|(?<=[.!?])\s+(?=[A-ZÄÖÜ])/)
+        .map((paragraph) => paragraph.trim())
+        .filter((paragraph) => paragraph.length >= 20);
+}
+function buildFallbackHtml(title, teaserImageUrl, paragraphs) {
+    const chunks = [];
+    if (teaserImageUrl) {
+        chunks.push(`<img src="${escapeHtml(teaserImageUrl)}" alt="Teaser" style="max-width:100%;height:auto;margin-bottom:1rem;" />`);
+    }
+    if (title) {
+        chunks.push(`<h1>${escapeHtml(title)}</h1>`);
+    }
+    chunks.push(...paragraphs.map((paragraph) => `<p>${escapeHtml(paragraph)}</p>`));
+    return chunks.join('\n');
+}
+function asString(value) {
+    return typeof value === 'string' ? value.trim() : '';
 }
 function resolveUrl(url, baseUrl) {
     if (!baseUrl || !url)

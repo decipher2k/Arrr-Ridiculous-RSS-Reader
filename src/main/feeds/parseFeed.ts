@@ -70,6 +70,7 @@ export async function fetchAndParseFeed(feed: Feed): Promise<ParsedFeedResult> {
     const contentHtml = feed.contentMode === 'feed'
       ? ((item.contentEncoded as string | undefined) || (item.content as string | undefined) || null)
       : null;
+    const contentText = contentHtml ? sanitizeDescription(contentHtml) : null;
 
     const imageUrl = extractArticleImageFromFeedItem(item) || null;
 
@@ -84,7 +85,8 @@ export async function fetchAndParseFeed(feed: Feed): Promise<ParsedFeedResult> {
       publishedAt,
       fetchedAt: new Date().toISOString(),
       contentHtml,
-      contentText: null,
+      contentText,
+      contentSource: contentHtml ? 'feed' : null,
       duplicateGroupId: null,
       isHiddenDuplicate: 0,
     };

@@ -116,22 +116,49 @@ export function getDatabase(): sqlite3.Database {
 }
 
 async function runMigrations(): Promise<void> {
+  await ensureArticleContentSourceColumn();
+  await backfillArticleContentSource();
+
   const migrationDone = await getRow<{ value: string }>(
     "SELECT value FROM app_metadata WHERE key = 'json_migration_done'"
   );
-  if (migrationDone?.value === '1') return;
+  if (migrationDone?.value !== '1') {
+    const dir = getDbDir();
+    const jsonFiles = ['categories.json', 'feeds.json', 'feedCategories.json', 'articles.json', 'aiDuplicateRuns.json'];
+    const hasJson = jsonFiles.some((f) => fs.existsSync(path.join(dir, f)));
 
-  const dir = getDbDir();
-  const jsonFiles = ['categories.json', 'feeds.json', 'feedCategories.json', 'articles.json', 'aiDuplicateRuns.json'];
-  const hasJson = jsonFiles.some((f) => fs.existsSync(path.join(dir, f)));
+    if (hasJson) {
+      console.log('[DB] Migrating JSON data to SQLite...');
+      await migrateJsonData();
+      console.log('[DB] JSON migration complete.');
+    }
 
-  if (hasJson) {
-    console.log('[DB] Migrating JSON data to SQLite...');
-    await migrateJsonData();
-    console.log('[DB] JSON migration complete.');
+    await runSql("INSERT OR REPLACE INTO app_metadata (key, value) VALUES ('json_migration_done', '1')");
   }
 
-  await runSql("INSERT OR REPLACE INTO app_metadata (key, value) VALUES ('json_migration_done', '1')");
+}
+
+async function ensureArticleContentSourceColumn(): Promise<void> {
+  const columns = await getAll<{ name: string }>('PRAGMA table_info(articles)');
+  if (!columns.some((column) => column.name === 'contentSource')) {
+    await runSql('ALTER TABLE articles ADD COLUMN contentSource TEXT');
+  }
+}
+
+async function backfillArticleContentSource(): Promise<void> {
+  await runSql(`
+    UPDATE articles
+    SET contentSource = CASE
+      WHEN COALESCE((SELECT contentMode FROM feeds WHERE feeds.id = articles.feedId), 'scraped') = 'feed'
+        THEN 'feed'
+      ELSE 'scraped'
+    END
+    WHERE contentSource IS NULL
+      AND contentHtml IS NOT NULL
+      AND TRIM(contentHtml) <> ''
+      AND contentText IS NOT NULL
+      AND TRIM(contentText) <> ''
+  `);
 }
 
 async function migrateJsonData(): Promise<void> {
@@ -188,7 +215,7 @@ async function migrateJsonData(): Promise<void> {
     const articles = readJsonFile<Article>('articles.json');
     for (const a of articles) {
       await runSql(
-        'INSERT OR IGNORE INTO articles (id, feedId, title, description, link, imageUrl, teaserImageUrl, publishedAt, fetchedAt, contentHtml, contentText, duplicateGroupId, isHiddenDuplicate) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        'INSERT OR IGNORE INTO articles (id, feedId, title, description, link, imageUrl, teaserImageUrl, publishedAt, fetchedAt, contentHtml, contentText, contentSource, duplicateGroupId, isHiddenDuplicate) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
         [
           a.id,
           a.feedId,
@@ -201,6 +228,7 @@ async function migrateJsonData(): Promise<void> {
           a.fetchedAt,
           a.contentHtml ?? null,
           a.contentText ?? null,
+          a.contentSource ?? null,
           a.duplicateGroupId ?? null,
           a.isHiddenDuplicate ?? 0,
         ]
@@ -467,11 +495,12 @@ export async function insertOrUpdateArticle(article: {
   publishedAt: string | null;
   contentHtml: string | null;
   contentText: string | null;
+  contentSource?: 'feed' | 'scraped' | null;
 }): Promise<void> {
   const now = new Date().toISOString();
   await runSql(
-    `INSERT INTO articles (id, feedId, title, description, link, imageUrl, teaserImageUrl, publishedAt, fetchedAt, contentHtml, contentText, duplicateGroupId, isHiddenDuplicate)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, 0)
+    `INSERT INTO articles (id, feedId, title, description, link, imageUrl, teaserImageUrl, publishedAt, fetchedAt, contentHtml, contentText, contentSource, duplicateGroupId, isHiddenDuplicate)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, 0)
      ON CONFLICT(id) DO UPDATE SET
        feedId = excluded.feedId,
        title = excluded.title,
@@ -481,8 +510,9 @@ export async function insertOrUpdateArticle(article: {
        teaserImageUrl = excluded.teaserImageUrl,
        publishedAt = excluded.publishedAt,
        fetchedAt = excluded.fetchedAt,
-       contentHtml = excluded.contentHtml,
-       contentText = excluded.contentText,
+       contentHtml = CASE WHEN excluded.contentSource IS NULL THEN articles.contentHtml ELSE excluded.contentHtml END,
+       contentText = CASE WHEN excluded.contentSource IS NULL THEN articles.contentText ELSE excluded.contentText END,
+       contentSource = COALESCE(excluded.contentSource, articles.contentSource),
        duplicateGroupId = NULL,
        isHiddenDuplicate = 0`,
     [
@@ -497,6 +527,7 @@ export async function insertOrUpdateArticle(article: {
       now,
       article.contentHtml,
       article.contentText,
+      article.contentSource ?? null,
     ]
   );
 }
@@ -513,6 +544,7 @@ export async function batchInsertArticles(
     publishedAt: string | null;
     contentHtml: string | null;
     contentText: string | null;
+    contentSource?: 'feed' | 'scraped' | null;
   }>
 ): Promise<void> {
   const now = new Date().toISOString();
@@ -520,8 +552,8 @@ export async function batchInsertArticles(
   try {
     for (const article of newArticles) {
       await runSql(
-        `INSERT INTO articles (id, feedId, title, description, link, imageUrl, teaserImageUrl, publishedAt, fetchedAt, contentHtml, contentText, duplicateGroupId, isHiddenDuplicate)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, 0)
+        `INSERT INTO articles (id, feedId, title, description, link, imageUrl, teaserImageUrl, publishedAt, fetchedAt, contentHtml, contentText, contentSource, duplicateGroupId, isHiddenDuplicate)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, 0)
          ON CONFLICT(id) DO UPDATE SET
            feedId = excluded.feedId,
            title = excluded.title,
@@ -531,8 +563,9 @@ export async function batchInsertArticles(
            teaserImageUrl = excluded.teaserImageUrl,
            publishedAt = excluded.publishedAt,
            fetchedAt = excluded.fetchedAt,
-           contentHtml = excluded.contentHtml,
-           contentText = excluded.contentText,
+           contentHtml = CASE WHEN excluded.contentSource IS NULL THEN articles.contentHtml ELSE excluded.contentHtml END,
+           contentText = CASE WHEN excluded.contentSource IS NULL THEN articles.contentText ELSE excluded.contentText END,
+           contentSource = COALESCE(excluded.contentSource, articles.contentSource),
            duplicateGroupId = NULL,
            isHiddenDuplicate = 0`,
         [
@@ -547,6 +580,7 @@ export async function batchInsertArticles(
           now,
           article.contentHtml,
           article.contentText,
+          article.contentSource ?? null,
         ]
       );
     }
@@ -576,8 +610,16 @@ export async function findExistingArticle(
   return byTitle;
 }
 
-export async function updateArticleContent(id: string, contentHtml: string, contentText: string): Promise<void> {
-  await runSql('UPDATE articles SET contentHtml = ?, contentText = ? WHERE id = ?', [contentHtml, contentText, id]);
+export async function updateArticleContent(
+  id: string,
+  contentHtml: string,
+  contentText: string,
+  contentSource: 'feed' | 'scraped'
+): Promise<void> {
+  await runSql(
+    'UPDATE articles SET contentHtml = ?, contentText = ?, contentSource = ? WHERE id = ?',
+    [contentHtml, contentText, contentSource, id]
+  );
 }
 
 export async function updateArticleTeaserImage(id: string, teaserImageUrl: string): Promise<void> {

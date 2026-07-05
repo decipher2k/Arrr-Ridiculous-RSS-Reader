@@ -13,7 +13,7 @@
 // limitations under the License.
 
 import { create } from 'zustand';
-import type { Category, Feed, Article, AppSettings, TranslateArticleResult } from '../../shared/types';
+import type { Category, Feed, Article, AppSettings, TranslateArticleResult, NiceNewsFilterResult } from '../../shared/types';
 import type { SupportedLanguage } from '../../shared/constants';
 
 interface TranslationState {
@@ -30,7 +30,7 @@ interface AppState {
   feeds: Feed[];
   articles: Article[];
   selectedArticleId: string | null;
-  currentArticleContent: { contentHtml: string; contentText: string; teaserImageUrl: string | null } | null;
+  currentArticleContent: { contentHtml: string; contentText: string; teaserImageUrl: string | null; contentSource: 'feed' | 'scraped' } | null;
   settings: AppSettings | null;
   isSettingsOpen: boolean;
   isManageOpen: boolean;
@@ -38,6 +38,10 @@ interface AppState {
   isLoadingContent: boolean;
   isDedupRunning: boolean;
   showDuplicates: boolean;
+  niceNewsEnabled: boolean;
+  isNiceNewsFiltering: boolean;
+  niceNewsFilteredCount: number;
+  niceNewsError: string | null;
   selectedTranslationLanguage: SupportedLanguage | null;
   showTranslation: boolean;
   translation: TranslationState;
@@ -49,6 +53,7 @@ interface AppState {
   setSettingsOpen: (open: boolean) => void;
   setManageOpen: (open: boolean) => void;
   setShowDuplicates: (show: boolean) => void;
+  setNiceNewsEnabled: (enabled: boolean) => void;
   setSelectedTranslationLanguage: (lang: SupportedLanguage | null) => void;
   setShowTranslation: (show: boolean) => void;
   translateCurrentArticle: () => Promise<void>;
@@ -90,6 +95,79 @@ async function loadTranslationsForArticles(articles: Article[], language: string
   }
 }
 
+const niceNewsClassificationCache = new Map<string, boolean>();
+
+function niceNewsCacheKey(article: Article): string {
+  return `${article.id}:${article.title}`;
+}
+
+async function filterNiceNewsArticles(articles: Article[]): Promise<{ articles: Article[]; filteredCount: number; error: string | null }> {
+  if (articles.length === 0) {
+    return { articles, filteredCount: 0, error: null };
+  }
+
+  const negativeIds = new Set<string>();
+  const uncachedArticles: Article[] = [];
+
+  for (const article of articles) {
+    const cachedIsNegative = niceNewsClassificationCache.get(niceNewsCacheKey(article));
+    if (cachedIsNegative === true) {
+      negativeIds.add(article.id);
+    } else if (cachedIsNegative === undefined) {
+      uncachedArticles.push(article);
+    }
+  }
+
+  if (uncachedArticles.length === 0) {
+    return {
+      articles: articles.filter((article) => !negativeIds.has(article.id)),
+      filteredCount: negativeIds.size,
+      error: null,
+    };
+  }
+
+  try {
+    const result = await window.electronAPI.invoke<NiceNewsFilterResult>(
+      'ai:filterNiceNews',
+      uncachedArticles.map((article) => ({ id: article.id, title: article.title }))
+    );
+
+    if (!result.success) {
+      return {
+        articles: articles.filter((article) => !negativeIds.has(article.id)),
+        filteredCount: negativeIds.size,
+        error: result.message || 'Nice News filtering failed',
+      };
+    }
+
+    const newlyNegativeIds = new Set(result.negativeArticleIds);
+    for (const article of uncachedArticles) {
+      const isNegative = newlyNegativeIds.has(article.id);
+      if (isNegative || !result.usedFallbackOnly) {
+        niceNewsClassificationCache.set(niceNewsCacheKey(article), isNegative);
+      }
+      if (isNegative) {
+        negativeIds.add(article.id);
+      }
+    }
+
+    return {
+      articles: articles.filter((article) => !negativeIds.has(article.id)),
+      filteredCount: negativeIds.size,
+      error: null,
+    };
+  } catch (err) {
+    console.error('[filterNiceNewsArticles] Error:', err);
+    return {
+      articles: articles.filter((article) => !negativeIds.has(article.id)),
+      filteredCount: negativeIds.size,
+      error: err instanceof Error ? err.message : String(err),
+    };
+  }
+}
+
+let articleLoadRunId = 0;
+
 export const useAppStore = create<AppState>((set, get) => ({
   categories: [],
   selectedCategoryId: null,
@@ -104,6 +182,10 @@ export const useAppStore = create<AppState>((set, get) => ({
   isLoadingContent: false,
   isDedupRunning: false,
   showDuplicates: false,
+  niceNewsEnabled: false,
+  isNiceNewsFiltering: false,
+  niceNewsFilteredCount: 0,
+  niceNewsError: null,
   selectedTranslationLanguage: null,
   showTranslation: false,
   translation: {
@@ -123,12 +205,34 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   selectCategory: async (id) => {
-    set({ selectedCategoryId: id, selectedArticleId: null, currentArticleContent: null, isLoadingArticles: true });
+    const runId = ++articleLoadRunId;
+    const niceNewsEnabled = get().niceNewsEnabled;
+    set({
+      selectedCategoryId: id,
+      selectedArticleId: null,
+      currentArticleContent: null,
+      isLoadingArticles: true,
+      isNiceNewsFiltering: niceNewsEnabled,
+      niceNewsFilteredCount: 0,
+      niceNewsError: null,
+    });
     const rawArticles = await window.electronAPI.invoke<Article[]>('db:getArticles', id, {
       includeHiddenDuplicates: get().showDuplicates,
     });
-    const articles = await loadTranslationsForArticles(rawArticles, get().selectedTranslationLanguage);
-    set({ articles, isLoadingArticles: false });
+    const niceNewsResult = niceNewsEnabled
+      ? await filterNiceNewsArticles(rawArticles)
+      : { articles: rawArticles, filteredCount: 0, error: null };
+    const articles = await loadTranslationsForArticles(niceNewsResult.articles, get().selectedTranslationLanguage);
+
+    if (runId !== articleLoadRunId || get().selectedCategoryId !== id) return;
+
+    set({
+      articles,
+      isLoadingArticles: false,
+      isNiceNewsFiltering: false,
+      niceNewsFilteredCount: niceNewsResult.filteredCount,
+      niceNewsError: niceNewsResult.error,
+    });
 
     // Trigger batch translation for the new category if a language is selected
     const { selectedTranslationLanguage, settings } = get();
@@ -160,7 +264,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       translation: { translatedTitle: null, translatedHtml: null, wordCount: 0, isTranslating: false, translationError: null },
       showTranslation: false,
     });
-    const content = await window.electronAPI.invoke<{ contentHtml: string; contentText: string; teaserImageUrl: string | null } | null>('articles:scrape', id);
+    const content = await window.electronAPI.invoke<{ contentHtml: string; contentText: string; teaserImageUrl: string | null; contentSource: 'feed' | 'scraped' } | null>('articles:scrape', id);
     set({ currentArticleContent: content, isLoadingContent: false });
 
     if (!settings) {
@@ -194,8 +298,13 @@ export const useAppStore = create<AppState>((set, get) => ({
     await get().refreshArticles();
   },
 
+  setNiceNewsEnabled: async (enabled) => {
+    set({ niceNewsEnabled: enabled, niceNewsError: null });
+    await get().refreshArticles();
+  },
+
   setSelectedTranslationLanguage: async (lang) => {
-    const { settings, selectedCategoryId, showDuplicates } = get();
+    const { settings, selectedCategoryId, showDuplicates, niceNewsEnabled } = get();
     
     // Save to settings first
     if (settings) {
@@ -220,13 +329,33 @@ export const useAppStore = create<AppState>((set, get) => ({
       });
       
       // ALWAYS reload articles directly from DB to ensure we have the current category's articles
-      set({ isLoadingArticles: true });
+      const runId = ++articleLoadRunId;
+      set({ isLoadingArticles: true, isNiceNewsFiltering: niceNewsEnabled, niceNewsFilteredCount: 0, niceNewsError: null });
       const rawArticles = await window.electronAPI.invoke<Article[]>('db:getArticles', selectedCategoryId, {
         includeHiddenDuplicates: showDuplicates,
       });
       console.log('[setSelectedTranslationLanguage] Loaded', rawArticles.length, 'raw articles for category', selectedCategoryId);
-      const translatedArticles = await loadTranslationsForArticles(rawArticles, lang);
-      set({ articles: translatedArticles, isLoadingArticles: false });
+      const niceNewsResult = niceNewsEnabled
+        ? await filterNiceNewsArticles(rawArticles)
+        : { articles: rawArticles, filteredCount: 0, error: null };
+      const translatedArticles = await loadTranslationsForArticles(niceNewsResult.articles, lang);
+
+      if (runId !== articleLoadRunId || get().selectedCategoryId !== selectedCategoryId) return;
+
+      set({
+        articles: translatedArticles,
+        isLoadingArticles: false,
+        isNiceNewsFiltering: false,
+        niceNewsFilteredCount: niceNewsResult.filteredCount,
+        niceNewsError: niceNewsResult.error,
+      });
+
+      const { selectedArticleId } = get();
+      if (translatedArticles.length === 0) {
+        set({ selectedArticleId: null, currentArticleContent: null });
+      } else if (!selectedArticleId || !translatedArticles.some((article) => article.id === selectedArticleId)) {
+        await get().selectArticle(translatedArticles[0].id);
+      }
       
       if (translatedArticles.length > 0) {
         // Trigger background batch translation for ALL articles (force=true)
@@ -340,16 +469,40 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   refreshArticles: async () => {
-    const { selectedCategoryId, showDuplicates, selectedTranslationLanguage } = get();
+    const { selectedCategoryId, showDuplicates, selectedTranslationLanguage, niceNewsEnabled } = get();
     if (!selectedCategoryId) return;
-    set({ isLoadingArticles: true });
+    const runId = ++articleLoadRunId;
+    set({
+      isLoadingArticles: true,
+      isNiceNewsFiltering: niceNewsEnabled,
+      niceNewsFilteredCount: 0,
+      niceNewsError: null,
+    });
     const rawArticles = await window.electronAPI.invoke<Article[]>('db:getArticles', selectedCategoryId, {
       includeHiddenDuplicates: showDuplicates,
     });
 
-    const articles = await loadTranslationsForArticles(rawArticles, selectedTranslationLanguage);
+    const niceNewsResult = niceNewsEnabled
+      ? await filterNiceNewsArticles(rawArticles)
+      : { articles: rawArticles, filteredCount: 0, error: null };
+    const articles = await loadTranslationsForArticles(niceNewsResult.articles, selectedTranslationLanguage);
 
-    set({ articles, isLoadingArticles: false });
+    if (runId !== articleLoadRunId || get().selectedCategoryId !== selectedCategoryId) return;
+
+    set({
+      articles,
+      isLoadingArticles: false,
+      isNiceNewsFiltering: false,
+      niceNewsFilteredCount: niceNewsResult.filteredCount,
+      niceNewsError: niceNewsResult.error,
+    });
+
+    const { selectedArticleId } = get();
+    if (articles.length === 0) {
+      set({ selectedArticleId: null, currentArticleContent: null });
+    } else if (!selectedArticleId || !articles.some((article) => article.id === selectedArticleId)) {
+      await get().selectArticle(articles[0].id);
+    }
   },
 
   updateArticleTranslation: (articleId: string, translatedTitle: string, translatedDescription: string) => {

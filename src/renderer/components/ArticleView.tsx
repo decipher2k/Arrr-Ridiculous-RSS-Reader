@@ -103,12 +103,12 @@ export default function ArticleView() {
             <Loader2 className="animate-spin mr-2" size={16} />
             {t('articleView.loading')}
           </div>
-        ) : translation.isTranslating ? (
+        ) : translation.isTranslating && !displayHtml ? (
           <div className="flex items-center justify-center h-32 text-slate-400">
             <Loader2 className="animate-spin mr-2" size={16} />
             {t('articleView.translating')}
           </div>
-        ) : translation.translationError ? (
+        ) : translation.translationError && !displayHtml ? (
           <div className="flex flex-col items-center justify-center h-64 text-slate-500 gap-2">
             <AlertCircle size={24} />
             <div className="text-sm">{translation.translationError}</div>
@@ -123,7 +123,27 @@ export default function ArticleView() {
           <div className="text-sm text-slate-400">{t('articleView.selectArticle')}</div>
         ) : displayHtml ? (
           <div>
-            {!showTranslation && currentArticleContent?.teaserImageUrl && !currentArticleContent.contentHtml?.includes(currentArticleContent.teaserImageUrl) && (
+            {translation.isTranslating && (
+              <div className="mb-4 rounded border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-500 flex items-center gap-2">
+                <Loader2 className="animate-spin" size={16} />
+                {t('articleView.translating')}
+              </div>
+            )}
+            {translation.translationError && (
+              <div className="mb-4 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800 flex items-start gap-2">
+                <AlertCircle size={16} className="mt-0.5 shrink-0" />
+                <div>
+                  <div>{translation.translationError}</div>
+                  <button
+                    onClick={() => useAppStore.getState().translateCurrentArticle()}
+                    className="mt-1 text-amber-900 underline hover:text-amber-700"
+                  >
+                    {t('articleView.retry')}
+                  </button>
+                </div>
+              </div>
+            )}
+            {currentArticleContent?.teaserImageUrl && !displayHtml?.includes(currentArticleContent.teaserImageUrl) && (
               <img
                 src={currentArticleContent.teaserImageUrl}
                 alt="Teaser"

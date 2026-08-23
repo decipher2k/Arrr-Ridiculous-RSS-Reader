@@ -29,6 +29,7 @@ const MODEL_DOWNLOAD_URL = 'https://huggingface.co/lmstudio-community/Ministral-
 const MODEL_FILE_NAME = 'Ministral-3-3B-Instruct-2512-Q4_K_M.gguf';
 const MIN_MODEL_SIZE_BYTES = 1_000_000_000; // ~1 GB minimum
 const STARTUP_TIMEOUT_MS = 120_000; // 120s for first GPU init
+const CHAT_COMPLETION_TIMEOUT_MS = 180_000;
 function getModelDir() {
     return path_1.default.join(electron_1.app.getPath('userData'), 'models');
 }
@@ -209,11 +210,26 @@ class LocalLlamaProvider {
             temperature: 0.2,
             max_tokens: maxTokens,
         };
-        const res = await fetch(`http://127.0.0.1:${this.settings.localLlmPort}/v1/chat/completions`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(body),
-        });
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), CHAT_COMPLETION_TIMEOUT_MS);
+        let res;
+        try {
+            res = await fetch(`http://127.0.0.1:${this.settings.localLlmPort}/v1/chat/completions`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body),
+                signal: controller.signal,
+            });
+        }
+        catch (err) {
+            if (err instanceof Error && err.name === 'AbortError') {
+                throw new Error(`Local LLM request timed out after ${CHAT_COMPLETION_TIMEOUT_MS / 1000}s`);
+            }
+            throw err;
+        }
+        finally {
+            clearTimeout(timeout);
+        }
         if (!res.ok) {
             const text = await res.text();
             throw new Error(`Local LLM error ${res.status}: ${text}`);

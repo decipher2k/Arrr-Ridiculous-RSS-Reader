@@ -31,8 +31,8 @@ const LANGUAGE_NAMES: Record<string, string> = {
 };
 
 const FULL_TRANSLATION_CACHE_MARKER = '<!-- translation-mode:full-v3 -->';
-
-const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+const OPENAI_BATCH_CONCURRENCY = 3;
+const LOCAL_LLM_BATCH_CONCURRENCY = 1;
 
 function truncateText(text: string, maxChars: number): string {
   if (text.length <= maxChars) return text;
@@ -63,19 +63,20 @@ export async function translateAndSummarizeArticle(
   }
 
   const scrapedContent = await scrapeArticle(articleId);
-  if (!scrapedContent) {
+  const rawContentHtml = scrapedContent?.contentHtml || article.contentHtml || '';
+  const rawContentText = scrapedContent?.contentText || article.contentText || article.description || '';
+
+  if (!rawContentHtml.trim() && !rawContentText.trim()) {
     return {
       success: false,
       title: '',
       html: '',
       wordCount: 0,
       cached: false,
-      message: 'Der verlinkte Artikel konnte nicht geladen werden. Die OpenAI-Uebersetzung kann nur lokal geladenen Artikelinhalt uebersetzen.',
+      message: 'Der verlinkte Artikel konnte nicht geladen werden, und es ist kein Feed-Inhalt zum Übersetzen gespeichert.',
     };
   }
 
-  const rawContentHtml = scrapedContent.contentHtml;
-  const rawContentText = scrapedContent.contentText;
   const sourceContent = rawContentHtml.trim()
     ? rawContentHtml
     : textToHtml(rawContentText);
@@ -125,7 +126,7 @@ IMPORTANT:
         role: 'user',
         content: `Original title: ${article.title}\n\nOriginal article HTML:\n${contentHtml}`,
       },
-    ], 5000);
+      ], 5000, 10);
 
     let parsed: { title: string; description: string; html: string; wordCount: number };
     try {
@@ -137,7 +138,7 @@ IMPORTANT:
           content: 'You are a JSON repair tool. Fix the following broken JSON and return only valid JSON.',
         },
         { role: 'user', content: responseText },
-      ]);
+      ], undefined, 10);
       parsed = parseTranslationResponse(repairResponse);
     }
 
@@ -190,6 +191,9 @@ function robustJsonClean(text: string): string {
 
 function parseTranslationResponse(text: string): { title: string; description: string; html: string; wordCount: number } {
   const cleaned = robustJsonClean(text);
+  if (/^\[\s*\.\.\.\s*\]$/.test(cleaned)) {
+    throw new Error('AI returned a placeholder instead of a translation');
+  }
   try {
     const parsed = JSON.parse(cleaned) as { title?: string; description?: string; html?: string; wordCount?: number };
     if (parsed.title && parsed.html) {
@@ -301,7 +305,6 @@ function escapeHtmlAttribute(text: string): string {
   return escapeHtml(text).replace(/`/g, '&#096;');
 }
 
-// NEW: Sequential single-article batch translation with per-article events
 export async function batchTranslateArticleList(
   articleIds: string[],
   targetLanguage: string,
@@ -311,20 +314,18 @@ export async function batchTranslateArticleList(
 ): Promise<void> {
   if (articleIds.length === 0 || !targetLanguage) return;
 
-  console.log(`[batchTranslate] START sequential translation for ${articleIds.length} articles, lang=${targetLanguage}, force=${force}`);
+  const concurrency = settings.aiProviderType === 'local' || isLocalBaseUrl(settings.aiBaseUrl)
+    ? LOCAL_LLM_BATCH_CONCURRENCY
+    : OPENAI_BATCH_CONCURRENCY;
+
+  console.log(`[batchTranslate] START limited translation for ${articleIds.length} articles, lang=${targetLanguage}, force=${force}, concurrency=${concurrency}`);
 
   const langName = LANGUAGE_NAMES[targetLanguage] || targetLanguage;
-  let successCount = 0;
-  let failCount = 0;
-  let skippedCount = 0;
-
-  for (let i = 0; i < articleIds.length; i++) {
-    const articleId = articleIds[i];
+  const translateOne = async (articleId: string, i: number): Promise<'success' | 'skipped' | 'failed'> => {
     const article = await getArticleById(articleId);
     if (!article) {
       console.log(`[batchTranslate] [${i + 1}/${articleIds.length}] Article not found: ${articleId}`);
-      failCount++;
-      continue;
+      return 'failed' as const;
     }
 
     // Check cache unless force is true
@@ -332,11 +333,10 @@ export async function batchTranslateArticleList(
       const cached = await getTranslation(articleId, targetLanguage);
       if (cached && cached.translatedTitle) {
         console.log(`[batchTranslate] [${i + 1}/${articleIds.length}] Cache hit, skipping: ${truncateText(article.title, 60)}`);
-        skippedCount++;
         if (onProgress) {
           onProgress(articleId, cached.translatedTitle, cached.translatedDescription || '');
         }
-        continue;
+        return 'skipped' as const;
       }
     }
 
@@ -366,6 +366,9 @@ export async function batchTranslateArticleList(
       ], 1500);
 
       const cleaned = robustJsonClean(responseText);
+      if (/^\[\s*\.\.\.\s*\]$/.test(cleaned)) {
+        throw new Error('AI returned a placeholder instead of JSON');
+      }
       const parsed = JSON.parse(cleaned) as { translatedTitle?: string; translatedDescription?: string };
 
       if (!parsed.translatedTitle) {
@@ -382,7 +385,6 @@ export async function batchTranslateArticleList(
         createdAt: new Date().toISOString(),
       };
       await saveTranslation(translation);
-      successCount++;
 
       // Emit progress event
       if (onProgress) {
@@ -390,18 +392,46 @@ export async function batchTranslateArticleList(
       }
 
       console.log(`[batchTranslate] [${i + 1}/${articleIds.length}] OK: ${truncateText(parsed.translatedTitle, 60)}`);
-
-      // Small delay to not overload the local server
-      if (i < articleIds.length - 1) {
-        await sleep(150);
-      }
+      return 'success' as const;
     } catch (err) {
       console.error(`[batchTranslate] [${i + 1}/${articleIds.length}] FAILED for ${articleId}:`, err instanceof Error ? err.message : String(err));
-      failCount++;
-      // Continue with next article
-      await sleep(150);
+      return 'failed' as const;
     }
-  }
+  };
+
+  const results = await mapWithConcurrency(articleIds, concurrency, translateOne);
+
+  const successCount = results.filter((result) => result === 'success').length;
+  const skippedCount = results.filter((result) => result === 'skipped').length;
+  const failCount = results.filter((result) => result === 'failed').length;
 
   console.log(`[batchTranslate] DONE. Success: ${successCount}, Skipped: ${skippedCount}, Failed: ${failCount}, Total: ${articleIds.length}`);
+}
+
+function isLocalBaseUrl(baseUrl: string): boolean {
+  try {
+    const host = new URL(baseUrl).hostname.toLowerCase();
+    return host === 'localhost' || host === '127.0.0.1' || host === '::1';
+  } catch {
+    return /(^|\/\/)(localhost|127\.0\.0\.1)(:|\/|$)/i.test(baseUrl);
+  }
+}
+
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  concurrency: number,
+  worker: (item: T, index: number) => Promise<R>
+): Promise<R[]> {
+  const results: R[] = new Array(items.length);
+  let nextIndex = 0;
+  const workerCount = Math.max(1, Math.min(concurrency, items.length));
+
+  await Promise.all(Array.from({ length: workerCount }, async () => {
+    while (nextIndex < items.length) {
+      const currentIndex = nextIndex++;
+      results[currentIndex] = await worker(items[currentIndex], currentIndex);
+    }
+  }));
+
+  return results;
 }

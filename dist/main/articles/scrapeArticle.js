@@ -97,7 +97,7 @@ async function scrapeArticle(articleId) {
         };
     }
     if (!article.link)
-        return null;
+        return getFeedFallbackContent(article);
     try {
         const { html, finalUrl } = await fetchArticleHtml(article.link);
         const extracted = (0, contentExtractor_1.extractArticleContent)(html, article.link || undefined);
@@ -124,8 +124,36 @@ async function scrapeArticle(articleId) {
     }
     catch (err) {
         console.error(`Failed to scrape article ${articleId}:`, err);
-        return null;
+        return getFeedFallbackContent(article);
     }
+}
+function getFeedFallbackContent(article) {
+    if (!article)
+        return null;
+    const contentHtml = article.contentHtml?.trim()
+        ? article.contentHtml
+        : article.description?.trim()
+            ? `<p>${escapeHtml(article.description)}</p>`
+            : '';
+    if (!contentHtml.trim())
+        return null;
+    const contentText = (article.contentText?.trim() || article.description?.trim() || contentHtml.replace(/<[^>]+>/g, ' '))
+        .replace(/\s+/g, ' ')
+        .trim();
+    return {
+        contentHtml,
+        contentText,
+        teaserImageUrl: article.teaserImageUrl || article.imageUrl,
+        contentSource: 'feed',
+    };
+}
+function escapeHtml(text) {
+    return text
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
 }
 async function fetchArticleHtml(url) {
     const articleHeaders = getArticleFetchHeaders(url);

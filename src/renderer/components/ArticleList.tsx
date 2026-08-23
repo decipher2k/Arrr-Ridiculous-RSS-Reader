@@ -46,6 +46,26 @@ function ArticleDescription({ text }: { text: string }) {
   );
 }
 
+function ArticlePreviewImage({ imageUrl, teaserImageUrl }: { imageUrl: string | null; teaserImageUrl: string | null }) {
+  const sources = [teaserImageUrl, imageUrl, PLACEHOLDER_IMAGE].filter(Boolean) as string[];
+  const [sourceIndex, setSourceIndex] = useState(0);
+
+  useEffect(() => {
+    setSourceIndex(0);
+  }, [imageUrl, teaserImageUrl]);
+
+  return (
+    <img
+      src={sources[sourceIndex] || PLACEHOLDER_IMAGE}
+      alt=""
+      className="w-[115px] h-[115px] object-cover rounded shrink-0 bg-slate-100"
+      onError={() => {
+        setSourceIndex((index) => Math.min(index + 1, sources.length - 1));
+      }}
+    />
+  );
+}
+
 export default function ArticleList() {
   const { t } = useI18n();
   const { articles, selectedArticleId, selectArticle, isLoadingArticles } = useAppStore();
@@ -78,14 +98,7 @@ export default function ArticleList() {
                 selectedArticleId === article.id ? 'bg-blue-50 border-l-4 border-l-blue-600' : 'border-l-4 border-l-transparent'
               }`}
             >
-              <img
-                src={article.imageUrl || article.teaserImageUrl || PLACEHOLDER_IMAGE}
-                alt=""
-                className="w-[115px] h-[115px] object-cover rounded shrink-0 bg-slate-100"
-                onError={(e) => {
-                  (e.target as HTMLImageElement).src = PLACEHOLDER_IMAGE;
-                }}
-              />
+              <ArticlePreviewImage imageUrl={article.imageUrl} teaserImageUrl={article.teaserImageUrl} />
               <div className="flex-1 min-w-0 flex flex-col">
                 <div className="text-sm font-bold text-slate-800 leading-tight">
                   {article.translatedTitle || article.title}

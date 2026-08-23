@@ -75,7 +75,7 @@ export async function scrapeArticle(articleId: string): Promise<ScrapedArticleCo
     };
   }
 
-  if (!article.link) return null;
+  if (!article.link) return getFeedFallbackContent(article);
 
   try {
     const { html, finalUrl } = await fetchArticleHtml(article.link);
@@ -107,8 +107,40 @@ export async function scrapeArticle(articleId: string): Promise<ScrapedArticleCo
     };
   } catch (err) {
     console.error(`Failed to scrape article ${articleId}:`, err);
-    return null;
+    return getFeedFallbackContent(article);
   }
+}
+
+function getFeedFallbackContent(article: Awaited<ReturnType<typeof getArticleById>>): ScrapedArticleContent | null {
+  if (!article) return null;
+
+  const contentHtml = article.contentHtml?.trim()
+    ? article.contentHtml
+    : article.description?.trim()
+      ? `<p>${escapeHtml(article.description)}</p>`
+      : '';
+
+  if (!contentHtml.trim()) return null;
+
+  const contentText = (article.contentText?.trim() || article.description?.trim() || contentHtml.replace(/<[^>]+>/g, ' '))
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  return {
+    contentHtml,
+    contentText,
+    teaserImageUrl: article.teaserImageUrl || article.imageUrl,
+    contentSource: 'feed',
+  };
+}
+
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
 }
 
 async function fetchArticleHtml(url: string): Promise<{ html: string; finalUrl: string }> {
